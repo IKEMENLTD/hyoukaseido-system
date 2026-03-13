@@ -29,6 +29,16 @@ export async function GET(request: Request) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
+      // メールアドレスで未紐づけメンバーを自動リンク
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.email) {
+        await supabase
+          .from('members')
+          .update({ auth_user_id: user.id })
+          .eq('email', user.email)
+          .is('auth_user_id', null);
+      }
+
       return NextResponse.redirect(`${origin}${next}`);
     }
 

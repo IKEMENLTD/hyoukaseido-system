@@ -25,6 +25,8 @@ interface DivisionMemberRow {
 interface MemberRow {
   id: string;
   name: string;
+  email: string | null;
+  auth_user_id: string | null;
   grade: Grade;
   monthly_salary: number;
   status: MemberStatus;
@@ -47,6 +49,7 @@ interface MemberManagerProps {
 /** メンバー追加/編集フォームの入力値 */
 interface MemberFormData {
   name: string;
+  email: string;
   grade: Grade;
   monthly_salary: string;
   hire_date: string;
@@ -88,6 +91,7 @@ const ROLE_OPTIONS = [
 
 const EMPTY_FORM: MemberFormData = {
   name: '',
+  email: '',
   grade: 'G1',
   monthly_salary: '',
   hire_date: '',
@@ -142,6 +146,14 @@ export default function MemberManager({
     () => initialMembers.filter((m) => m.status === 'inactive').length,
     [initialMembers]
   );
+  const linkedCount = useMemo(
+    () => initialMembers.filter((m) => m.auth_user_id !== null).length,
+    [initialMembers]
+  );
+  const pendingCount = useMemo(
+    () => initialMembers.filter((m) => m.email && !m.auth_user_id).length,
+    [initialMembers]
+  );
 
   // --- ヘルパー ---
   const clearMessages = useCallback(() => {
@@ -169,6 +181,7 @@ export default function MemberManager({
       setEditingMemberId(member.id);
       setFormData({
         name: member.name,
+        email: member.email ?? '',
         grade: member.grade,
         monthly_salary: String(member.monthly_salary),
         hire_date: member.hire_date ?? '',
@@ -211,6 +224,9 @@ export default function MemberManager({
   // --- バリデーション ---
   const validateMemberForm = useCallback((): string | null => {
     if (!formData.name.trim()) return '名前を入力してください';
+    if (formData.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+      return 'メールアドレスの形式が正しくありません';
+    }
     const salary = Number(formData.monthly_salary);
     if (!formData.monthly_salary || isNaN(salary) || salary <= 0) {
       return '月額給与を正しく入力してください';
@@ -245,6 +261,7 @@ export default function MemberManager({
       .insert({
         org_id: orgId,
         name: formData.name.trim(),
+        email: formData.email.trim() || null,
         grade: formData.grade,
         monthly_salary: Number(formData.monthly_salary),
         hire_date: formData.hire_date || null,
@@ -282,6 +299,7 @@ export default function MemberManager({
       .from('members')
       .update({
         name: formData.name.trim(),
+        email: formData.email.trim() || null,
         grade: formData.grade,
         monthly_salary: Number(formData.monthly_salary),
         hire_date: formData.hire_date || null,
@@ -415,7 +433,7 @@ export default function MemberManager({
         )}
 
         {/* サマリー */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4">
             <div className="text-xs text-[#737373] uppercase tracking-wider mb-1">合計</div>
             <div className="text-2xl font-bold text-[#e5e5e5]">{initialMembers.length}</div>
@@ -425,8 +443,12 @@ export default function MemberManager({
             <div className="text-2xl font-bold text-[#22d3ee]">{activeCount}</div>
           </div>
           <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4">
-            <div className="text-xs text-[#737373] uppercase tracking-wider mb-1">無効</div>
-            <div className="text-2xl font-bold text-[#737373]">{inactiveCount}</div>
+            <div className="text-xs text-[#737373] uppercase tracking-wider mb-1">ログイン済</div>
+            <div className="text-2xl font-bold text-emerald-400">{linkedCount}</div>
+          </div>
+          <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4">
+            <div className="text-xs text-[#737373] uppercase tracking-wider mb-1">未ログイン</div>
+            <div className="text-2xl font-bold text-amber-400">{pendingCount}</div>
           </div>
         </div>
 
@@ -452,9 +474,9 @@ export default function MemberManager({
                 <tr className="border-b border-[#1a1a1a] text-[#737373]">
                   <th className="px-4 py-2 text-left font-medium">名前</th>
                   <th className="px-4 py-2 text-center font-medium">等級</th>
+                  <th className="px-4 py-2 text-left font-medium">メール / 認証</th>
                   <th className="px-4 py-2 text-left font-medium">所属事業部</th>
                   <th className="px-4 py-2 text-right font-medium">月額給与</th>
-                  <th className="px-4 py-2 text-left font-medium">入社日</th>
                   <th className="px-4 py-2 text-center font-medium">ステータス</th>
                   <th className="px-4 py-2 text-center font-medium">操作</th>
                 </tr>
@@ -462,7 +484,7 @@ export default function MemberManager({
               <tbody>
                 {filteredMembers.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-[#737373] text-sm">
+                    <td colSpan={8} className="px-4 py-8 text-center text-[#737373] text-sm">
                       {searchQuery.trim() ? '該当するメンバーが見つかりません' : 'データがありません'}
                     </td>
                   </tr>
@@ -481,6 +503,26 @@ export default function MemberManager({
                       >
                         {member.grade}
                       </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-xs text-[#737373]">
+                          {member.email ?? '---'}
+                        </span>
+                        {member.auth_user_id ? (
+                          <span className="text-[10px] font-bold text-emerald-400">
+                            LINKED
+                          </span>
+                        ) : member.email ? (
+                          <span className="text-[10px] font-bold text-amber-400">
+                            PENDING
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold text-[#404040]">
+                            NO EMAIL
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1">
@@ -504,7 +546,6 @@ export default function MemberManager({
                     <td className="px-4 py-3 text-right text-[#a3a3a3]">
                       {member.monthly_salary.toLocaleString()}円
                     </td>
-                    <td className="px-4 py-3 text-[#737373]">{member.hire_date ?? '---'}</td>
                     <td className="px-4 py-3 text-center">
                       <span
                         className={`text-xs font-bold ${
@@ -598,6 +639,23 @@ export default function MemberManager({
                       className="w-full bg-[#111] border border-[#1a1a1a] text-sm px-3 py-2 text-white outline-none focus:border-[#3b82f6]"
                       placeholder="山田 太郎"
                     />
+                  </div>
+
+                  {/* Googleメールアドレス */}
+                  <div>
+                    <label className="block text-xs text-[#737373] mb-1">
+                      Googleメールアドレス
+                    </label>
+                    <input
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => updateFormField('email', e.target.value)}
+                      className="w-full bg-[#111] border border-[#1a1a1a] text-sm px-3 py-2 text-white outline-none focus:border-[#3b82f6]"
+                      placeholder="user@gmail.com"
+                    />
+                    <p className="text-[10px] text-[#404040] mt-1">
+                      このメールでGoogleログインすると自動的にアカウントが紐づきます
+                    </p>
                   </div>
 
                   {/* 等級 */}

@@ -23,6 +23,8 @@ interface DivisionMemberRow {
 interface MemberRow {
   id: string;
   name: string;
+  email: string | null;
+  auth_user_id: string | null;
   grade: Grade;
   monthly_salary: number;
   status: MemberStatus;
