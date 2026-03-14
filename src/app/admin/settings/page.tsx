@@ -3,7 +3,7 @@
 // 全社設定、等級定義、バリュー項目の管理
 // =============================================================================
 
-import type { Grade, Rank } from '@/types/evaluation';
+import type { Grade } from '@/types/evaluation';
 import { RANK_THRESHOLDS, SALARY_CHANGE } from '@/types/evaluation';
 import { getCurrentMember } from '@/lib/auth/get-member';
 import { createClient } from '@/lib/supabase/server';
@@ -31,6 +31,12 @@ interface ValueItemRow {
   max_score: number;
 }
 
+interface RankThresholdRow {
+  rank: string;
+  min_score: number;
+  salary_change: number;
+}
+
 export default async function AdminSettingsPage() {
   const member = await getCurrentMember();
   if (!member || !['G4', 'G5'].includes(member.grade)) {
@@ -48,7 +54,7 @@ export default async function AdminSettingsPage() {
 
   const supabase = await createClient();
 
-  const [orgResult, gradeResult, valueResult] = await Promise.all([
+  const [orgResult, gradeResult, valueResult, rankResult] = await Promise.all([
     supabase
       .from('organizations')
       .select('id, name, fiscal_year_start')
@@ -64,11 +70,17 @@ export default async function AdminSettingsPage() {
       .select('name, definition, axis, max_score')
       .eq('org_id', member.org_id)
       .order('sort_order'),
+    supabase
+      .from('rank_thresholds')
+      .select('rank, min_score, salary_change')
+      .eq('org_id', member.org_id)
+      .order('min_score', { ascending: false }),
   ]);
 
   const orgRow = orgResult.data as unknown as OrganizationRow | null;
   const gradeRows = (gradeResult.data ?? []) as unknown as GradeDefinitionRow[];
   const valueRows = (valueResult.data ?? []) as unknown as ValueItemRow[];
+  const rankRows = (rankResult.data ?? []) as unknown as RankThresholdRow[];
 
   // camelCase に変換して SettingsClient に渡す
   const org = {
@@ -93,6 +105,18 @@ export default async function AdminSettingsPage() {
     maxScore: v.max_score,
   }));
 
+  const rankThresholds = rankRows.length > 0
+    ? rankRows.map((r) => ({
+        rank: r.rank,
+        minScore: r.min_score,
+        salaryChange: r.salary_change,
+      }))
+    : RANK_THRESHOLDS.map((t) => ({
+        rank: t.rank,
+        minScore: t.min,
+        salaryChange: SALARY_CHANGE[t.rank],
+      }));
+
   return (
     <div className="min-h-screen bg-[#050505] p-6">
       <div className="max-w-5xl mx-auto space-y-6">
@@ -111,47 +135,10 @@ export default async function AdminSettingsPage() {
           org={org}
           gradeDefinitions={gradeDefinitions}
           valueItems={valueItems}
+          rankThresholds={rankThresholds}
           orgId={member.org_id}
         />
 
-        {/* ランク判定閾値 (読み取り専用 - Server Component) */}
-        <div className="border border-[#1a1a1a] bg-[#0a0a0a]">
-          <div className="border-b border-[#1a1a1a] px-4 py-3">
-            <h3 className="text-sm font-medium text-[#a3a3a3] uppercase tracking-wider">
-              ランク判定閾値 / 昇給額
-            </h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-[#1a1a1a] text-[#737373]">
-                  <th className="px-4 py-2 text-center font-medium">ランク</th>
-                  <th className="px-4 py-2 text-right font-medium">最低スコア</th>
-                  <th className="px-4 py-2 text-right font-medium">昇給額</th>
-                </tr>
-              </thead>
-              <tbody>
-                {RANK_THRESHOLDS.map((threshold) => (
-                  <tr key={threshold.rank} className="border-b border-[#111111]">
-                    <td className="px-4 py-2 text-center">
-                      <span className={`font-bold ${
-                        ({ S: 'text-[#3b82f6]', A: 'text-[#22d3ee]', B: 'text-[#a3a3a3]', C: 'text-[#f59e0b]', D: 'text-[#ef4444]' } as Record<Rank, string>)[threshold.rank]
-                      }`}>
-                        {threshold.rank}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2 text-right text-[#a3a3a3]">{threshold.min}点</td>
-                    <td className="px-4 py-2 text-right">
-                      <span className={`font-bold ${SALARY_CHANGE[threshold.rank] >= 0 ? 'text-[#22d3ee]' : 'text-[#ef4444]'}`}>
-                        {SALARY_CHANGE[threshold.rank] >= 0 ? '+' : ''}{SALARY_CHANGE[threshold.rank].toLocaleString()}円
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
       </div>
     </div>
   );

@@ -34,10 +34,17 @@ interface ValueItem {
   maxScore: number;
 }
 
+interface RankThreshold {
+  rank: string;
+  minScore: number;
+  salaryChange: number;
+}
+
 interface SettingsClientProps {
   org: Organization;
   gradeDefinitions: GradeDefinition[];
   valueItems: ValueItem[];
+  rankThresholds: RankThreshold[];
   orgId: string;
 }
 
@@ -76,6 +83,7 @@ export default function SettingsClient({
   org,
   gradeDefinitions: initialGrades,
   valueItems: initialValues,
+  rankThresholds: initialRankThresholds,
   orgId,
 }: SettingsClientProps) {
   // ---------------------------------------------------------------------------
@@ -104,6 +112,15 @@ export default function SettingsClient({
   const [valueBackup, setValueBackup] = useState<ValueItem[]>(initialValues);
   const [valueSaving, setValueSaving] = useState(false);
   const [valueMessage, setValueMessage] = useState<SectionMessage | null>(null);
+
+  // ---------------------------------------------------------------------------
+  // ランク閾値 state
+  // ---------------------------------------------------------------------------
+  const [rankEditMode, setRankEditMode] = useState(false);
+  const [rankThresholds, setRankThresholds] = useState<RankThreshold[]>(initialRankThresholds);
+  const [rankBackup, setRankBackup] = useState<RankThreshold[]>(initialRankThresholds);
+  const [rankSaving, setRankSaving] = useState(false);
+  const [rankMessage, setRankMessage] = useState<SectionMessage | null>(null);
 
   // ---------------------------------------------------------------------------
   // 組織情報 保存
@@ -277,6 +294,65 @@ export default function SettingsClient({
       setValueEditMode(false);
     }
   }, [valueItems, orgId]);
+
+  // ---------------------------------------------------------------------------
+  // ランク閾値 保存
+  // ---------------------------------------------------------------------------
+  const handleRankEdit = useCallback(() => {
+    setRankBackup(rankThresholds.map((r) => ({ ...r })));
+    setRankEditMode(true);
+    setRankMessage(null);
+  }, [rankThresholds]);
+
+  const handleRankCancel = useCallback(() => {
+    setRankThresholds(rankBackup.map((r) => ({ ...r })));
+    setRankEditMode(false);
+    setRankMessage(null);
+  }, [rankBackup]);
+
+  const updateRank = useCallback(
+    (index: number, field: 'minScore' | 'salaryChange', value: number) => {
+      setRankThresholds((prev) => {
+        const next = prev.map((r) => ({ ...r }));
+        next[index] = { ...next[index], [field]: value };
+        return next;
+      });
+    },
+    [],
+  );
+
+  const handleRankSave = useCallback(async () => {
+    setRankSaving(true);
+    setRankMessage(null);
+
+    const supabase = createClient();
+    let hasError = false;
+
+    for (const threshold of rankThresholds) {
+      const { error } = await supabase
+        .from('rank_thresholds')
+        .upsert({
+          org_id: orgId,
+          rank: threshold.rank,
+          min_score: threshold.minScore,
+          salary_change: threshold.salaryChange,
+        }, { onConflict: 'org_id,rank' });
+
+      if (error) {
+        setRankMessage({ type: 'error', text: `ランク${threshold.rank}の保存に失敗: ${error.message}` });
+        hasError = true;
+        break;
+      }
+    }
+
+    setRankSaving(false);
+
+    if (!hasError) {
+      setRankBackup(rankThresholds.map((r) => ({ ...r })));
+      setRankMessage({ type: 'success', text: 'ランク閾値を保存しました' });
+      setRankEditMode(false);
+    }
+  }, [rankThresholds, orgId]);
 
   // ---------------------------------------------------------------------------
   // メッセージ表示ヘルパー
@@ -595,6 +671,96 @@ export default function SettingsClient({
             {renderMessage(valueMessage)}
           </div>
         )}
+      </div>
+
+      {/* ------------------------------------------------------------------- */}
+      {/* ランク判定閾値 / 昇給額 */}
+      {/* ------------------------------------------------------------------- */}
+      <div className="border border-[#1a1a1a] bg-[#0a0a0a]">
+        <div className="border-b border-[#1a1a1a] px-4 py-3 flex items-center justify-between">
+          <h3 className="text-sm font-medium text-[#a3a3a3] uppercase tracking-wider">
+            ランク判定閾値 / 昇給額
+          </h3>
+          {!rankEditMode ? (
+            <button
+              type="button"
+              className={EDIT_BTN_CLASS}
+              onClick={handleRankEdit}
+            >
+              編集
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              {rankSaving ? (
+                <span className={SAVING_BTN_CLASS}>保存中...</span>
+              ) : (
+                <>
+                  <button type="button" className={CANCEL_BTN_CLASS} onClick={handleRankCancel}>
+                    キャンセル
+                  </button>
+                  <button type="button" className={SAVE_BTN_CLASS} onClick={handleRankSave}>
+                    保存
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[#1a1a1a] text-[#737373]">
+                <th className="px-4 py-2 text-center font-medium">ランク</th>
+                <th className="px-4 py-2 text-right font-medium">最低スコア</th>
+                <th className="px-4 py-2 text-right font-medium">昇給額</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rankThresholds.map((threshold, idx) => {
+                const rankColor: Record<string, string> = {
+                  S: 'text-[#3b82f6]', A: 'text-[#22d3ee]', B: 'text-[#a3a3a3]',
+                  C: 'text-[#f59e0b]', D: 'text-[#ef4444]',
+                };
+                return (
+                  <tr key={threshold.rank} className="border-b border-[#111111]">
+                    <td className="px-4 py-2 text-center">
+                      <span className={`font-bold ${rankColor[threshold.rank] ?? 'text-[#a3a3a3]'}`}>
+                        {threshold.rank}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      {rankEditMode ? (
+                        <input
+                          type="number"
+                          value={threshold.minScore}
+                          onChange={(e) => updateRank(idx, 'minScore', Number(e.target.value))}
+                          className={`${INPUT_CLASS} w-24 text-right`}
+                        />
+                      ) : (
+                        <span className="text-[#a3a3a3]">{threshold.minScore}点</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      {rankEditMode ? (
+                        <input
+                          type="number"
+                          value={threshold.salaryChange}
+                          onChange={(e) => updateRank(idx, 'salaryChange', Number(e.target.value))}
+                          className={`${INPUT_CLASS} w-28 text-right`}
+                        />
+                      ) : (
+                        <span className={`font-bold ${threshold.salaryChange >= 0 ? 'text-[#22d3ee]' : 'text-[#ef4444]'}`}>
+                          {threshold.salaryChange >= 0 ? '+' : ''}{threshold.salaryChange.toLocaleString()}円
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {renderMessage(rankMessage)}
+        </div>
       </div>
     </>
   );
