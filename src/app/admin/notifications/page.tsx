@@ -1,6 +1,6 @@
 // =============================================================================
 // 通知設定ページ (管理者)
-// LINE/Slack通知チャンネルの設定
+// LINE/Slack/ChatWork通知チャンネルの設定
 // =============================================================================
 
 import { getCurrentMember } from '@/lib/auth/get-member';
@@ -9,7 +9,7 @@ import NotificationChannelManager from './NotificationChannelManager';
 
 interface NotificationChannelRow {
   id: string;
-  type: 'slack' | 'line';
+  type: 'slack' | 'line' | 'chatwork';
   channel_name: string;
   webhook_url: string;
   is_active: boolean;
@@ -19,7 +19,7 @@ interface NotificationChannelRow {
 
 interface DisplayChannel {
   id: string;
-  type: 'slack' | 'line';
+  type: 'slack' | 'line' | 'chatwork';
   channelName: string;
   webhookUrl: string;
   isActive: boolean;

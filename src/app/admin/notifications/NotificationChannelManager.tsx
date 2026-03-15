@@ -15,7 +15,7 @@ import { createClient } from '@/lib/supabase/client';
 
 interface NotificationChannel {
   id: string;
-  type: 'slack' | 'line';
+  type: 'slack' | 'line' | 'chatwork';
   channelName: string;
   webhookUrl: string;
   isActive: boolean;
@@ -44,7 +44,7 @@ const EVENT_LABELS: Record<string, string> = {
 
 const ALL_EVENT_KEYS = Object.keys(EVENT_LABELS);
 
-type ChannelType = 'slack' | 'line';
+type ChannelType = 'slack' | 'line' | 'chatwork';
 
 // ---------------------------------------------------------------------------
 // フォーム状態
@@ -268,17 +268,31 @@ export default function NotificationChannelManager({
       setSuccessMessage(null);
 
       try {
-        const body =
-          channel.type === 'slack'
-            ? { text: '[テスト] 評価制度システムからのテスト通知です' }
-            : { messages: [{ type: 'text', text: '[テスト] 評価制度システムからのテスト通知です' }] };
+        const testMessage = '[テスト] 評価制度システムからのテスト通知です';
 
-        const response = await fetch(channel.webhookUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-          signal: AbortSignal.timeout(10000),
-        });
+        let response: Response;
+        if (channel.type === 'chatwork') {
+          // ChatWork Webhook API はフォームデータで送信
+          const params = new URLSearchParams({ body: testMessage });
+          response = await fetch(channel.webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: params.toString(),
+            signal: AbortSignal.timeout(10000),
+          });
+        } else {
+          const body =
+            channel.type === 'slack'
+              ? { text: testMessage }
+              : { messages: [{ type: 'text', text: testMessage }] };
+
+          response = await fetch(channel.webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+            signal: AbortSignal.timeout(10000),
+          });
+        }
 
         if (!response.ok) {
           setErrorMessage(`テスト送信失敗: HTTP ${response.status}`);
@@ -312,7 +326,7 @@ export default function NotificationChannelManager({
             タイプ
           </div>
           <div className="flex items-center gap-4">
-            {(['slack', 'line'] as const).map((t) => (
+            {(['slack', 'line', 'chatwork'] as const).map((t) => (
               <label key={t} className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="radio"
@@ -428,7 +442,7 @@ export default function NotificationChannelManager({
             通知設定
           </h1>
           <p className="text-sm text-[#737373] mt-1">
-            LINE/Slack通知チャンネルの設定
+            LINE/Slack/ChatWork通知チャンネルの設定
           </p>
         </div>
         <button
@@ -479,7 +493,9 @@ export default function NotificationChannelManager({
                       className={`px-2 py-0.5 border text-[10px] font-bold uppercase ${
                         channel.type === 'slack'
                           ? 'text-[#22d3ee] border-[#22d3ee]'
-                          : 'text-[#22c55e] border-[#22c55e]'
+                          : channel.type === 'chatwork'
+                            ? 'text-[#e74c3c] border-[#e74c3c]'
+                            : 'text-[#22c55e] border-[#22c55e]'
                       }`}
                     >
                       {channel.type}
