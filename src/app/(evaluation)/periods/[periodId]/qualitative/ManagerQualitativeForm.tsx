@@ -6,9 +6,8 @@
 // =============================================================================
 
 import { useState, useCallback } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { saveManagerQualitativeScores } from '@/lib/evaluation/actions';
 import type { BehaviorScore, Grade } from '@/types/evaluation';
-import { updateQualitativeScoreManager } from '@/lib/evaluation/update-evaluation-scores';
 
 // ---------------------------------------------------------------------------
 // 型定義
@@ -103,7 +102,7 @@ export default function ManagerQualitativeForm({
     const existing = selfScoreMap.get(item.id);
     initialRows[item.id] = {
       manager_score: existing?.manager_score ?? null,
-      manager_comment: '',
+      manager_comment: existing?.comment ?? '',
       is_upper_grade: existing?.is_upper_grade_behavior ?? false,
     };
   }
@@ -137,51 +136,22 @@ export default function ManagerQualitativeForm({
     setSaving(true);
     setMessage(null);
 
-    const supabase = createClient();
-    const upsertData: Array<{
-      evaluation_id: string;
-      behavior_item_id: string;
-      manager_score: BehaviorScore | null;
-      is_upper_grade_behavior: boolean;
-    }> = [];
-
-    for (const item of behaviorItems) {
+    const scores = behaviorItems.map((item) => {
       const row = rows[item.id];
-      upsertData.push({
-        evaluation_id: evaluationId,
+      return {
         behavior_item_id: item.id,
         manager_score: row.manager_score,
         is_upper_grade_behavior: row.is_upper_grade,
-      });
-    }
+        manager_comment: row.manager_comment || null,
+      };
+    });
 
-    const { error } = await supabase
-      .from('eval_behavior_scores')
-      .upsert(upsertData, { onConflict: 'evaluation_id,behavior_item_id' });
+    const result = await saveManagerQualitativeScores(evaluationId, scores);
 
-    if (error) {
-      setMessage({ type: 'error', text: `保存に失敗しました: ${error.message}` });
-    } else {
-      // 上長コメントがある行のみ、comment列を個別更新
-      // (upsertに含めると自己評価コメントが空文字で上書きされるため分離)
-      for (const item of behaviorItems) {
-        const row = rows[item.id];
-        if (row.manager_comment) {
-          const { error: commentError } = await supabase
-            .from('eval_behavior_scores')
-            .update({ comment: row.manager_comment })
-            .eq('evaluation_id', evaluationId)
-            .eq('behavior_item_id', item.id);
-          if (commentError) {
-            setMessage({ type: 'error', text: `コメント保存に失敗しました: ${commentError.message}` });
-            setSaving(false);
-            return;
-          }
-        }
-      }
-      // 集計スコアを再計算・永続化
-      await updateQualitativeScoreManager(evaluationId);
+    if (result.success) {
       setMessage({ type: 'success', text: '上長評価を保存しました' });
+    } else {
+      setMessage({ type: 'error', text: result.error ?? '保存に失敗しました' });
     }
 
     setSaving(false);

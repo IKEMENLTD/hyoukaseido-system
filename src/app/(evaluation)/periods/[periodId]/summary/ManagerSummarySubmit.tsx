@@ -7,8 +7,7 @@
 
 import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
-import { updateTotalScoreAndRank } from '@/lib/evaluation/update-evaluation-scores';
+import { submitManagerEvaluation, saveManagerDraft } from '@/lib/evaluation/actions';
 import type { Rank, Phase, Grade } from '@/types/evaluation';
 import { PHASE_WEIGHTS, SALARY_CHANGE } from '@/types/evaluation';
 import EvalRankBadge from '@/components/shared/EvalRankBadge';
@@ -26,7 +25,6 @@ interface ScoreData {
 interface ManagerSummarySubmitProps {
   evaluationId: string;
   periodId: string;
-  currentManagerId: string;
   memberName: string;
   grade: Grade;
   divisionName: string;
@@ -61,7 +59,6 @@ function calculateRank(score: number): Rank {
 export default function ManagerSummarySubmit({
   evaluationId,
   periodId,
-  currentManagerId,
   memberName,
   grade,
   divisionName,
@@ -133,48 +130,32 @@ export default function ManagerSummarySubmit({
     setSubmitting(true);
     setMessage(null);
 
-    const supabase = createClient();
+    const result = await submitManagerEvaluation(
+      evaluationId,
+      evaluatorComment || null,
+      nextActions || null
+    );
 
-    // Calculate and persist total score and rank first
-    await updateTotalScoreAndRank(evaluationId);
-
-    const { error } = await supabase
-      .from('evaluations')
-      .update({
-        evaluator_comment: evaluatorComment || null,
-        next_actions: nextActions || null,
-        evaluator_id: currentManagerId,
-        status: 'manager_submitted' as const,
-      })
-      .eq('id', evaluationId);
-
-    if (error) {
-      setMessage({ type: 'error', text: `提出に失敗しました: ${error.message}` });
-    } else {
+    if (result.success) {
       setMessage({ type: 'success', text: '上長評価を提出しました' });
       router.refresh();
+    } else {
+      setMessage({ type: 'error', text: result.error ?? '提出に失敗しました' });
     }
 
     setSubmitting(false);
-  }, [evaluationId, evaluatorComment, nextActions, currentManagerId, allSectionsComplete, router]);
+  }, [evaluationId, evaluatorComment, nextActions, allSectionsComplete, router]);
 
   const handleSaveDraft = useCallback(async () => {
     setSubmitting(true);
     setMessage(null);
 
-    const supabase = createClient();
+    const result = await saveManagerDraft(evaluationId, evaluatorComment || null);
 
-    const { error } = await supabase
-      .from('evaluations')
-      .update({
-        evaluator_comment: evaluatorComment || null,
-      })
-      .eq('id', evaluationId);
-
-    if (error) {
-      setMessage({ type: 'error', text: `保存に失敗しました: ${error.message}` });
-    } else {
+    if (result.success) {
       setMessage({ type: 'success', text: '上長コメントを保存しました' });
+    } else {
+      setMessage({ type: 'error', text: result.error ?? '保存に失敗しました' });
     }
 
     setSubmitting(false);

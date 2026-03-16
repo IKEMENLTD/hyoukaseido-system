@@ -44,21 +44,22 @@ export default async function EvalPeriodsPage() {
 
   const supabase = await createClient();
 
-  // 評価期間一覧取得
-  const { data: periods, error: periodsError } = await supabase
-    .from('eval_periods')
-    .select('*')
-    .order('fiscal_year', { ascending: false });
+  // 並列データ取得
+  const [periodsRes, orgsRes, okrPeriodsRes, linksRes] = await Promise.all([
+    supabase.from('eval_periods').select('*').order('fiscal_year', { ascending: false }),
+    supabase.from('organizations').select('id').limit(1).single(),
+    supabase.from('okr_periods').select('id, name, quarter, fiscal_year, status').order('fiscal_year', { ascending: false }),
+    supabase.from('eval_period_okr_periods').select('eval_period_id, okr_period_id'),
+  ]);
 
-  // org_id取得 (最初の組織)
-  const { data: orgs } = await supabase
-    .from('organizations')
-    .select('id')
-    .limit(1)
-    .single();
+  const { data: periods, error: periodsError } = periodsRes;
 
   const periodList: EvalPeriodRow[] = (periods as EvalPeriodRow[] | null) ?? [];
-  const orgId: string = orgs?.id ?? '';
+  const orgId: string = orgsRes.data?.id ?? '';
+  const okrPeriods = ((okrPeriodsRes.data ?? []) as Array<{
+    id: string; name: string; quarter: number; fiscal_year: number; status: string;
+  }>).map((p) => ({ id: p.id, name: p.name, quarter: p.quarter, fiscalYear: p.fiscal_year, status: p.status }));
+  const existingLinks = ((linksRes.data ?? []) as Array<{ eval_period_id: string; okr_period_id: string }>);
 
   // データ取得エラー時のフォールバック
   if (periodsError) {
@@ -80,6 +81,8 @@ export default async function EvalPeriodsPage() {
     <EvalPeriodManager
       initialPeriods={periodList}
       orgId={orgId}
+      okrPeriods={okrPeriods}
+      existingLinks={existingLinks}
     />
   );
 }

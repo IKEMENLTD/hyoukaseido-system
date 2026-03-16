@@ -6,8 +6,7 @@
 // =============================================================================
 
 import { useState, useCallback } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import { updateValueScoreManager } from '@/lib/evaluation/update-evaluation-scores';
+import { saveManagerValueScores } from '@/lib/evaluation/actions';
 
 // ---------------------------------------------------------------------------
 // 型定義
@@ -85,32 +84,20 @@ export default function ManagerValuesForm({
     setSaving(true);
     setMessage(null);
 
-    const supabase = createClient();
-    const upsertData: Array<{
-      evaluation_id: string;
-      value_item_id: string;
-      manager_score: number | null;
-    }> = [];
-
-    for (const item of valueItems) {
+    const scores = valueItems.map((item) => {
       const row = rows[item.id];
-      upsertData.push({
-        evaluation_id: evaluationId,
+      return {
         value_item_id: item.id,
         manager_score: row.manager_score,
-      });
-    }
+      };
+    });
 
-    const { error } = await supabase
-      .from('eval_value_scores')
-      .upsert(upsertData, { onConflict: 'evaluation_id,value_item_id' });
+    const result = await saveManagerValueScores(evaluationId, scores);
 
-    if (error) {
-      setMessage({ type: 'error', text: `保存に失敗しました: ${error.message}` });
-    } else {
-      // 集計スコアを再計算・永続化
-      await updateValueScoreManager(evaluationId, valueItems.map(v => ({ id: v.id, max_score: v.max_score })));
+    if (result.success) {
       setMessage({ type: 'success', text: '上長バリュー評価を保存しました' });
+    } else {
+      setMessage({ type: 'error', text: result.error ?? '保存に失敗しました' });
     }
 
     setSaving(false);

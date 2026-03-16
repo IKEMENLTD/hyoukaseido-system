@@ -21,7 +21,7 @@ export function fireNotification(params: FireNotificationParams): void {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(params),
-  }).catch(() => {
-    // 通知送信失敗はサイレントに無視
+  }).catch((err) => {
+    console.warn('通知送信失敗:', err instanceof Error ? err.message : err);
   });
 }

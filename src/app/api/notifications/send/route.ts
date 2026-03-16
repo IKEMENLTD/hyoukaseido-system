@@ -19,7 +19,25 @@ interface SendNotificationBody {
 /** membersテーブルから取得する行の型 */
 interface MemberRow {
   org_id: string;
+  grade: string;
 }
+
+/** 管理者（G3以上）のみが発火できるイベント */
+const ADMIN_ONLY_EVENTS: ReadonlySet<string> = new Set<string>([
+  'eval_period_start',
+  'calibration_start',
+  'calibration_complete',
+  'feedback_ready',
+  'okr_period_start',
+  'bonus_confirmed',
+]);
+
+/** 管理者等級 */
+const MANAGER_GRADES: ReadonlySet<string> = new Set(['G3', 'G4', 'G5']);
+
+/** 簡易レートリミット: ユーザーID → 最終リクエスト時刻 */
+const rateLimitMap = new Map<string, number>();
+const RATE_LIMIT_WINDOW_MS = 5000; // 5秒間に1リクエストまで
 
 /** 有効な通知イベント一覧 */
 const VALID_EVENTS: ReadonlySet<string> = new Set<string>([
@@ -52,10 +70,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
 
-    // org_id取得
+    // レートリミットチェック
+    const now = Date.now();
+    const lastRequest = rateLimitMap.get(user.id);
+    if (lastRequest && now - lastRequest < RATE_LIMIT_WINDOW_MS) {
+      return NextResponse.json(
+        { error: 'リクエストが多すぎます。しばらく待ってから再試行してください' },
+        { status: 429 }
+      );
+    }
+    rateLimitMap.set(user.id, now);
+
+    // org_id・grade取得
     const { data: member } = await supabase
       .from('members')
-      .select('org_id')
+      .select('org_id, grade')
       .eq('auth_user_id', user.id)
       .single();
 
@@ -65,6 +94,8 @@ export async function POST(request: Request) {
         { status: 404 }
       );
     }
+
+    const memberRow = member as unknown as MemberRow;
 
     const body = (await request.json()) as SendNotificationBody;
 
@@ -78,12 +109,34 @@ export async function POST(request: Request) {
 
     if (!VALID_EVENTS.has(body.event)) {
       return NextResponse.json(
-        { error: `無効なイベントタイプです: ${body.event}` },
+        { error: '無効なイベントタイプです' },
         { status: 400 }
       );
     }
 
-    const memberRow = member as unknown as MemberRow;
+    // 権限チェック: 管理者限定イベントはG3以上のみ
+    if (ADMIN_ONLY_EVENTS.has(body.event) && !MANAGER_GRADES.has(memberRow.grade)) {
+      return NextResponse.json(
+        { error: 'この通知を送信する権限がありません' },
+        { status: 403 }
+      );
+    }
+
+    // title/messageの長さ制限（フィッシング対策）
+    if (body.title.length > 200 || body.message.length > 1000) {
+      return NextResponse.json(
+        { error: '通知の件名または本文が長すぎます' },
+        { status: 400 }
+      );
+    }
+
+    // URLが指定されている場合、相対パスのみ許可（外部URLフィッシング防止）
+    if (body.url && (!body.url.startsWith('/') || body.url.startsWith('//'))) {
+      return NextResponse.json(
+        { error: '通知URLは相対パスのみ指定可能です' },
+        { status: 400 }
+      );
+    }
 
     const results = await sendNotification(memberRow.org_id, {
       event: body.event,
@@ -94,7 +147,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ results });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Internal server error';
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error('Notification send error:', err instanceof Error ? err.message : err);
+    return NextResponse.json({ error: '通知の送信中にエラーが発生しました' }, { status: 500 });
   }
 }

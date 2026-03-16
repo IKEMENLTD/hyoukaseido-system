@@ -6,6 +6,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentMember } from '@/lib/auth/get-member';
 import { notFound } from 'next/navigation';
+import ObjectiveActions from './ObjectiveActions';
 
 // ---------------------------------------------------------------------------
 // 型定義
@@ -104,7 +105,7 @@ export default async function ObjectiveDetailPage(props: ObjectiveDetailPageProp
   const { data: objective, error: objError } = await supabase
     .from('okr_objectives')
     .select(`
-      id, title, level, status, created_at,
+      id, title, level, status, created_at, member_id,
       members (name),
       divisions (name),
       okr_periods (name)
@@ -182,6 +183,17 @@ export default async function ObjectiveDetailPage(props: ObjectiveDetailPageProp
           <p className="text-sm text-[#737373] mt-2">
             {memberName}
           </p>
+          <div className="mt-4">
+            <ObjectiveActions
+              objectiveId={objectiveId}
+              currentTitle={typedObjective.title}
+              canEdit={
+                (typedObjective as unknown as { member_id: string | null }).member_id === member.id
+                || ['G3', 'G4', 'G5'].includes(member.grade)
+              }
+              canDelete={['G4', 'G5'].includes(member.grade)}
+            />
+          </div>
         </div>
 
         {/* Key Results */}

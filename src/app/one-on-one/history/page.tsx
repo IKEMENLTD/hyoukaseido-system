@@ -7,6 +7,7 @@ import type { MeetingType } from '@/types/evaluation';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentMember } from '@/lib/auth/get-member';
 import Link from 'next/link';
+import OneOnOneActions from './OneOnOneActions';
 
 // ---------------------------------------------------------------------------
 // Supabase query row types
@@ -85,7 +86,7 @@ export default async function OneOnOneHistoryPage({ searchParams }: PageProps) {
   const { data: rawRecords } = await supabase
     .from('one_on_ones')
     .select(`
-      id, meeting_date, meeting_type, okr_progress, blockers, action_items, notes,
+      id, meeting_date, meeting_type, okr_progress, blockers, action_items, notes, manager_id,
       manager:members!one_on_ones_manager_id_fkey (name),
       member:members!one_on_ones_member_id_fkey (name)
     `)
@@ -156,7 +157,13 @@ export default async function OneOnOneHistoryPage({ searchParams }: PageProps) {
                       {typeConfig.label}
                     </span>
                   </div>
-                  <span className="text-xs text-[#737373]">{record.managerName}</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-[#737373]">{record.managerName}</span>
+                    <OneOnOneActions
+                      recordId={record.id}
+                      canDelete={['G4', 'G5'].includes(member.grade)}
+                    />
+                  </div>
                 </div>
 
                 {/* 内容 */}

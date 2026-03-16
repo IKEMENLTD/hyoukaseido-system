@@ -9,6 +9,7 @@ import WinSessionClient from './WinSessionClient';
 
 interface WinSessionEntry {
   id: string;
+  member_id: string;
   win_description: string;
   category: string | null;
   members: { name: string } | null;
@@ -54,7 +55,7 @@ export default async function WinSessionPage() {
       id, session_date,
       facilitator:members!win_sessions_facilitator_id_fkey (name),
       win_session_entries (
-        id, win_description, category,
+        id, member_id, win_description, category,
         members (name),
         divisions (name)
       )
@@ -69,6 +70,7 @@ export default async function WinSessionPage() {
     facilitator: session.facilitator?.name ?? '未設定',
     entries: (session.win_session_entries ?? []).map((entry) => ({
       id: entry.id,
+      entryMemberId: entry.member_id,
       memberName: entry.members?.name ?? '不明',
       divisionName: entry.divisions?.name ?? '不明',
       winDescription: entry.win_description,

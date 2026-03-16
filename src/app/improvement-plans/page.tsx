@@ -8,6 +8,7 @@ import { getCurrentMember } from '@/lib/auth/get-member';
 import { createClient } from '@/lib/supabase/server';
 import EvalRankBadge from '@/components/shared/EvalRankBadge';
 import ImprovementPlanFormClient from './ImprovementPlanFormClient';
+import PlanActions from './PlanActions';
 
 /** Supabaseクエリ結果の行型 */
 interface ImprovementPlanRow {
@@ -273,6 +274,12 @@ export default async function ImprovementPlansPage() {
                         </div>
                       ))}
                     </div>
+                    <PlanActions
+                      planId={plan.id}
+                      status={plan.status}
+                      milestones={plan.milestones}
+                      canManage={['G3', 'G4', 'G5'].includes(member.grade)}
+                    />
                   </div>
 
                   {/* 結果 (完了時) */}

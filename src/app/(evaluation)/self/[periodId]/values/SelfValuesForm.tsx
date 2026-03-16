@@ -6,8 +6,7 @@
 // =============================================================================
 
 import { useState, useCallback } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import { updateValueScore } from '@/lib/evaluation/update-evaluation-scores';
+import { saveSelfValueScores } from '@/lib/evaluation/actions';
 
 // ---------------------------------------------------------------------------
 // 型定義
@@ -85,34 +84,21 @@ export default function SelfValuesForm({
     setSaving(true);
     setMessage(null);
 
-    const supabase = createClient();
-    const upsertData: Array<{
-      evaluation_id: string;
-      value_item_id: string;
-      self_score: number | null;
-      evidence: string | null;
-    }> = [];
-
-    for (const item of valueItems) {
+    const scores = valueItems.map((item) => {
       const row = rows[item.id];
-      upsertData.push({
-        evaluation_id: evaluationId,
+      return {
         value_item_id: item.id,
         self_score: row.self_score,
         evidence: row.evidence || null,
-      });
-    }
+      };
+    });
 
-    const { error } = await supabase
-      .from('eval_value_scores')
-      .upsert(upsertData, { onConflict: 'evaluation_id,value_item_id' });
+    const result = await saveSelfValueScores(evaluationId, scores);
 
-    if (error) {
-      setMessage({ type: 'error', text: `保存に失敗しました: ${error.message}` });
-    } else {
-      // Recalculate aggregate value score
-      await updateValueScore(evaluationId, valueItems.map(v => ({ id: v.id, max_score: v.max_score })));
+    if (result.success) {
       setMessage({ type: 'success', text: 'バリュー評価を保存しました' });
+    } else {
+      setMessage({ type: 'error', text: result.error ?? '保存に失敗しました' });
     }
 
     setSaving(false);

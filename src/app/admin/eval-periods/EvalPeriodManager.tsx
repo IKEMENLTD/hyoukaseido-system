@@ -9,6 +9,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { advanceEvalPeriodStatus } from '@/lib/evaluation/actions';
 import type { EvalPeriodStatus, Half } from '@/types/evaluation';
 
 // ---------------------------------------------------------------------------
@@ -26,9 +27,24 @@ interface EvalPeriodRow {
   status: EvalPeriodStatus;
 }
 
+interface OkrPeriodOption {
+  id: string;
+  name: string;
+  quarter: number;
+  fiscalYear: number;
+  status: string;
+}
+
+interface EvalOkrLink {
+  eval_period_id: string;
+  okr_period_id: string;
+}
+
 interface EvalPeriodManagerProps {
   initialPeriods: EvalPeriodRow[];
   orgId: string;
+  okrPeriods: OkrPeriodOption[];
+  existingLinks: EvalOkrLink[];
 }
 
 interface PeriodFormData {
@@ -39,7 +55,7 @@ interface PeriodFormData {
   end_date: string;
 }
 
-type ModalMode = 'closed' | 'create' | 'confirm_advance';
+type ModalMode = 'closed' | 'create' | 'confirm_advance' | 'link_okr';
 
 // ---------------------------------------------------------------------------
 // 定数
@@ -92,6 +108,8 @@ function getNextStatus(current: EvalPeriodStatus): EvalPeriodStatus | null {
 export default function EvalPeriodManager({
   initialPeriods,
   orgId,
+  okrPeriods,
+  existingLinks,
 }: EvalPeriodManagerProps) {
   const router = useRouter();
   const supabase = createClient();
@@ -100,6 +118,8 @@ export default function EvalPeriodManager({
   const [modalMode, setModalMode] = useState<ModalMode>('closed');
   const [formData, setFormData] = useState<PeriodFormData>(EMPTY_FORM);
   const [advanceTarget, setAdvanceTarget] = useState<EvalPeriodRow | null>(null);
+  const [linkTarget, setLinkTarget] = useState<EvalPeriodRow | null>(null);
+  const [selectedOkrIds, setSelectedOkrIds] = useState<Set<string>>(new Set());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -120,6 +140,8 @@ export default function EvalPeriodManager({
     setModalMode('closed');
     setFormData(EMPTY_FORM);
     setAdvanceTarget(null);
+    setLinkTarget(null);
+    setSelectedOkrIds(new Set());
     clearMessages();
   }, [clearMessages]);
 
@@ -200,7 +222,7 @@ export default function EvalPeriodManager({
     router.refresh();
   }, [supabase, orgId, formData, validateForm, closeModal, router]);
 
-  /** ステータス進行 */
+  /** ステータス進行 (Server Action経由) */
   const handleAdvanceStatus = useCallback(async () => {
     if (!advanceTarget) return;
 
@@ -210,15 +232,12 @@ export default function EvalPeriodManager({
     setIsSubmitting(true);
     setErrorMessage(null);
 
-    const { error } = await supabase
-      .from('eval_periods')
-      .update({ status: nextStatus })
-      .eq('id', advanceTarget.id);
+    const result = await advanceEvalPeriodStatus(advanceTarget.id);
 
     setIsSubmitting(false);
 
-    if (error) {
-      setErrorMessage(`ステータスの更新に失敗しました: ${error.message}`);
+    if (!result.success) {
+      setErrorMessage(result.error ?? 'ステータスの更新に失敗しました');
       return;
     }
 
@@ -227,7 +246,70 @@ export default function EvalPeriodManager({
     );
     closeModal();
     router.refresh();
-  }, [supabase, advanceTarget, closeModal, router]);
+  }, [advanceTarget, closeModal, router]);
+
+  /** OKR紐付けモーダルを開く */
+  const openLinkOkrModal = useCallback(
+    (period: EvalPeriodRow) => {
+      setLinkTarget(period);
+      // 既存リンクをロード
+      const linked = existingLinks
+        .filter((l) => l.eval_period_id === period.id)
+        .map((l) => l.okr_period_id);
+      setSelectedOkrIds(new Set(linked));
+      setModalMode('link_okr');
+      clearMessages();
+    },
+    [existingLinks, clearMessages]
+  );
+
+  /** OKR紐付け保存 */
+  const handleSaveOkrLinks = useCallback(async () => {
+    if (!linkTarget) return;
+
+    setIsSubmitting(true);
+    setErrorMessage(null);
+
+    // 既存リンクを全削除して再作成
+    const { error: delError } = await supabase
+      .from('eval_period_okr_periods')
+      .delete()
+      .eq('eval_period_id', linkTarget.id);
+
+    if (delError) {
+      setErrorMessage('紐付けの更新に失敗しました');
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (selectedOkrIds.size > 0) {
+      const inserts = Array.from(selectedOkrIds).map((okrPeriodId) => ({
+        eval_period_id: linkTarget.id,
+        okr_period_id: okrPeriodId,
+      }));
+
+      const { error: insError } = await supabase
+        .from('eval_period_okr_periods')
+        .insert(inserts);
+
+      if (insError) {
+        setErrorMessage('紐付けの保存に失敗しました');
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
+    setIsSubmitting(false);
+    setSuccessMessage('OKR期間の紐付けを更新しました');
+    closeModal();
+    router.refresh();
+  }, [supabase, linkTarget, selectedOkrIds, closeModal, router]);
+
+  /** OKR期間紐付け数を取得するヘルパー */
+  const getLinkedOkrCount = useCallback(
+    (periodId: string) => existingLinks.filter((l) => l.eval_period_id === periodId).length,
+    [existingLinks]
+  );
 
   // --- 描画 ---
   return (
@@ -380,6 +462,13 @@ export default function EvalPeriodManager({
                               次フェーズへ
                             </button>
                           )}
+                          <button
+                            type="button"
+                            onClick={() => openLinkOkrModal(period)}
+                            className="px-2 py-1 border border-[#333333] text-[10px] text-[#a3a3a3] hover:border-[#22d3ee] hover:text-[#22d3ee] transition-colors"
+                          >
+                            OKR ({getLinkedOkrCount(period.id)})
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -405,6 +494,7 @@ export default function EvalPeriodManager({
               <h2 className="text-sm font-bold text-[#e5e5e5] uppercase tracking-wider">
                 {modalMode === 'create' && '新規評価期間作成'}
                 {modalMode === 'confirm_advance' && 'ステータス変更確認'}
+                {modalMode === 'link_okr' && 'OKR期間の紐付け'}
               </h2>
               <button
                 type="button"
@@ -528,6 +618,58 @@ export default function EvalPeriodManager({
                   </div>
                 </div>
               )}
+
+              {/* OKR期間紐付けフォーム */}
+              {modalMode === 'link_okr' && linkTarget && (
+                <div className="space-y-4">
+                  <p className="text-sm text-[#a3a3a3]">
+                    <span className="text-[#e5e5e5] font-bold">{linkTarget.name}</span> に紐付けるOKR四半期を選択してください。
+                  </p>
+                  <div className="space-y-2">
+                    {okrPeriods.length === 0 ? (
+                      <p className="text-xs text-[#737373]">OKR期間が登録されていません</p>
+                    ) : (
+                      okrPeriods.map((okr) => {
+                        const isChecked = selectedOkrIds.has(okr.id);
+                        return (
+                          <label
+                            key={okr.id}
+                            className={`flex items-center gap-3 border p-3 cursor-pointer transition-colors ${
+                              isChecked ? 'border-[#22d3ee] bg-[#22d3ee]/5' : 'border-[#1a1a1a] hover:border-[#333333]'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {
+                                setSelectedOkrIds((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(okr.id)) {
+                                    next.delete(okr.id);
+                                  } else {
+                                    next.add(okr.id);
+                                  }
+                                  return next;
+                                });
+                              }}
+                              className="accent-[#22d3ee]"
+                            />
+                            <div className="flex-1">
+                              <div className="text-sm text-[#e5e5e5]">{okr.name}</div>
+                              <div className="text-[10px] text-[#404040] mt-0.5">
+                                {okr.fiscalYear}年度 Q{okr.quarter} / {okr.status}
+                              </div>
+                            </div>
+                          </label>
+                        );
+                      })
+                    )}
+                  </div>
+                  <div className="text-xs text-[#737373]">
+                    選択中: {selectedOkrIds.size}件
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* モーダルフッター */}
@@ -542,7 +684,13 @@ export default function EvalPeriodManager({
               </button>
               <button
                 type="button"
-                onClick={modalMode === 'create' ? handleCreate : handleAdvanceStatus}
+                onClick={
+                  modalMode === 'create'
+                    ? handleCreate
+                    : modalMode === 'link_okr'
+                      ? handleSaveOkrLinks
+                      : handleAdvanceStatus
+                }
                 disabled={isSubmitting}
                 className="px-4 py-2 bg-[#3b82f6] border border-[#3b82f6] text-xs text-white font-bold hover:bg-[#2563eb] transition-colors disabled:opacity-50"
               >
@@ -550,7 +698,9 @@ export default function EvalPeriodManager({
                   ? '処理中...'
                   : modalMode === 'create'
                     ? '作成'
-                    : 'ステータスを進める'}
+                    : modalMode === 'link_okr'
+                      ? '紐付けを保存'
+                      : 'ステータスを進める'}
               </button>
             </div>
           </div>

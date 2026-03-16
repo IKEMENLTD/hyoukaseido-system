@@ -6,7 +6,9 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { fireNotification } from '@/lib/notifications/client';
 import type { TossStatus } from '@/types/crosssell';
 
 // ---------------------------------------------------------------------------
@@ -42,9 +44,11 @@ interface TossPageClientProps {
     id: string;
     toDivision: string;
     receiverName: string;
+    tosserName: string;
     tossDate: string;
     status: TossStatus;
     grossProfit: number | null;
+    isReceiver: boolean;
   }>;
   memberId: string;
 }
@@ -59,6 +63,7 @@ export default function TossPageClient({
   recentTosses,
   memberId,
 }: TossPageClientProps) {
+  const router = useRouter();
   const [selectedRouteId, setSelectedRouteId] = useState('');
   const [selectedReceiverId, setSelectedReceiverId] = useState('');
   const [note, setNote] = useState('');
@@ -67,8 +72,46 @@ export default function TossPageClient({
     type: 'success' | 'error';
     text: string;
   } | null>(null);
+  // ステータス遷移用
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [grossProfitInput, setGrossProfitInput] = useState<Record<string, string>>({});
 
   const canSubmit = selectedRouteId !== '' && selectedReceiverId !== '' && !saving;
+
+  // ステータス遷移ハンドラー
+  const handleStatusChange = useCallback(async (tossId: string, newStatus: TossStatus, grossProfit?: number) => {
+    setUpdatingId(tossId);
+    setMessage(null);
+
+    const supabase = createClient();
+    const updateData: Record<string, unknown> = { status: newStatus };
+    if (grossProfit !== undefined) {
+      updateData.gross_profit = grossProfit;
+    }
+
+    const { error } = await supabase
+      .from('crosssell_tosses')
+      .update(updateData)
+      .eq('id', tossId);
+
+    if (error) {
+      setMessage({ type: 'error', text: 'ステータス更新に失敗しました' });
+    } else {
+      setMessage({ type: 'success', text: `ステータスを「${STATUS_CONFIG[newStatus].label}」に更新しました` });
+      // 成約時に通知
+      if (newStatus === 'contracted' && grossProfit) {
+        fireNotification({
+          event: 'crosssell_contracted',
+          title: 'クロスセルが成約しました',
+          message: `成約粗利: ${grossProfit.toLocaleString()}円`,
+          url: '/toss',
+        });
+      }
+      router.refresh();
+    }
+
+    setUpdatingId(null);
+  }, [router]);
 
   const handleSubmit = useCallback(async () => {
     if (!selectedRouteId || !selectedReceiverId) return;
@@ -92,15 +135,24 @@ export default function TossPageClient({
     });
 
     if (error) {
-      setMessage({ type: 'error', text: error.message });
+      setMessage({ type: 'error', text: '登録に失敗しました' });
     } else {
       setMessage({ type: 'success', text: 'トスアップを登録しました' });
+      // 通知発火
+      const receiver = receivers.find((r) => r.id === selectedReceiverId);
+      fireNotification({
+        event: 'crosssell_toss',
+        title: '新しいトスアップがあります',
+        message: `${receiver?.name ?? ''}さんへトスアップが登録されました`,
+        url: '/toss',
+      });
       setSelectedRouteId('');
       setSelectedReceiverId('');
       setNote('');
+      router.refresh();
     }
     setSaving(false);
-  }, [selectedRouteId, selectedReceiverId, note, memberId, routes]);
+  }, [selectedRouteId, selectedReceiverId, note, memberId, routes, receivers, router]);
 
   return (
     <div className="min-h-screen bg-[#050505] p-6">
@@ -262,6 +314,7 @@ export default function TossPageClient({
                       ステータス
                     </th>
                     <th className="px-4 py-2 text-right font-medium">粗利</th>
+                    <th className="px-4 py-2 text-center font-medium">操作</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -292,6 +345,62 @@ export default function TossPageClient({
                           {toss.grossProfit !== null
                             ? `${toss.grossProfit.toLocaleString()}円`
                             : '---'}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {updatingId === toss.id ? (
+                            <span className="text-xs text-[#737373]">更新中...</span>
+                          ) : toss.status === 'tossed' ? (
+                            <div className="flex items-center gap-1 justify-center">
+                              <button
+                                type="button"
+                                onClick={() => handleStatusChange(toss.id, 'in_progress')}
+                                className="px-2 py-1 border border-[#3b82f6] text-[10px] text-[#3b82f6] hover:bg-[#3b82f6]/10"
+                              >
+                                進行中
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleStatusChange(toss.id, 'cancelled')}
+                                className="px-2 py-1 border border-[#737373] text-[10px] text-[#737373] hover:bg-[#737373]/10"
+                              >
+                                取消
+                              </button>
+                            </div>
+                          ) : toss.status === 'in_progress' ? (
+                            <div className="flex items-center gap-1 justify-center">
+                              <input
+                                type="number"
+                                placeholder="粗利(円)"
+                                value={grossProfitInput[toss.id] ?? ''}
+                                onChange={(e) =>
+                                  setGrossProfitInput((prev) => ({ ...prev, [toss.id]: e.target.value }))
+                                }
+                                className="w-24 bg-[#111111] border border-[#333333] text-[#e5e5e5] text-xs px-2 py-1 focus:border-[#22d3ee] outline-none"
+                              />
+                              <button
+                                type="button"
+                                disabled={!grossProfitInput[toss.id]}
+                                onClick={() => {
+                                  const gp = parseFloat(grossProfitInput[toss.id]);
+                                  if (!isNaN(gp) && gp > 0) {
+                                    handleStatusChange(toss.id, 'contracted', gp);
+                                  }
+                                }}
+                                className="px-2 py-1 border border-[#22d3ee] text-[10px] text-[#22d3ee] hover:bg-[#22d3ee]/10 disabled:opacity-50"
+                              >
+                                成約
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleStatusChange(toss.id, 'cancelled')}
+                                className="px-2 py-1 border border-[#737373] text-[10px] text-[#737373] hover:bg-[#737373]/10"
+                              >
+                                取消
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-[10px] text-[#404040]">---</span>
+                          )}
                         </td>
                       </tr>
                     );

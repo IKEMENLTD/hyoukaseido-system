@@ -27,6 +27,7 @@ CREATE TABLE members (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id UUID NOT NULL REFERENCES organizations(id),
   auth_user_id UUID REFERENCES auth.users(id),  -- Supabase Auth連携
+  email TEXT,                                -- Google OAuth メールアドレス（自動リンク用）
   name TEXT NOT NULL,
   grade TEXT CHECK (grade IN ('G1', 'G2', 'G3', 'G4', 'G5')) NOT NULL,
   monthly_salary INT NOT NULL,               -- 月給（円）
@@ -799,7 +800,7 @@ CREATE POLICY "crosssell_tosses_delete" ON crosssell_tosses
 CREATE TABLE notification_channels (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id UUID NOT NULL REFERENCES organizations(id),
-  type TEXT NOT NULL CHECK (type IN ('slack', 'line')),
+  type TEXT NOT NULL CHECK (type IN ('slack', 'line', 'chatwork')),
   channel_name TEXT NOT NULL,
   webhook_url TEXT NOT NULL,
   is_active BOOLEAN DEFAULT true,
@@ -1303,3 +1304,69 @@ CREATE POLICY "notif_pref_update" ON notification_preferences
   FOR UPDATE USING (
     member_id = (SELECT id FROM members WHERE auth_user_id = auth.uid())
   );
+
+-- ============================================================
+-- ランク閾値（組織別カスタム設定）
+-- ============================================================
+
+CREATE TABLE rank_thresholds (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id UUID NOT NULL REFERENCES organizations(id),
+  rank TEXT NOT NULL CHECK (rank IN ('S', 'A', 'B', 'C', 'D')),
+  min_score NUMERIC NOT NULL,                -- この点数以上で該当ランク
+  salary_change INT NOT NULL,                -- 昇給額（円）
+  UNIQUE(org_id, rank)
+);
+
+ALTER TABLE rank_thresholds ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "rank_thresholds_select" ON rank_thresholds
+  FOR SELECT USING (true);
+
+CREATE POLICY "rank_thresholds_modify" ON rank_thresholds
+  FOR ALL USING (
+    EXISTS (
+      SELECT 1 FROM members WHERE auth_user_id = auth.uid() AND grade IN ('G4', 'G5')
+    )
+  );
+
+-- ============================================================
+-- 事業部別月次財務データ
+-- 評価のROI算出・事業部フェーズ判定に使用
+-- ============================================================
+
+CREATE TABLE division_financials (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  division_id UUID NOT NULL REFERENCES divisions(id),
+  fiscal_year INT NOT NULL,
+  month INT NOT NULL CHECK (month BETWEEN 1 AND 12),
+  revenue BIGINT NOT NULL DEFAULT 0,           -- 売上 (円)
+  cost BIGINT NOT NULL DEFAULT 0,              -- 原価 (円)
+  gross_profit BIGINT                          -- 粗利 (自動計算)
+    GENERATED ALWAYS AS (revenue - cost) STORED,
+  operating_cost BIGINT NOT NULL DEFAULT 0,    -- 販管費 (円, 人件費含む)
+  net_profit BIGINT                            -- 営業利益 (自動計算)
+    GENERATED ALWAYS AS (revenue - cost - operating_cost) STORED,
+  note TEXT,                                   -- 備考
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(division_id, fiscal_year, month)
+);
+
+ALTER TABLE division_financials ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "division_financials_select" ON division_financials
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM members WHERE auth_user_id = auth.uid() AND grade IN ('G3', 'G4', 'G5')
+    )
+  );
+
+CREATE POLICY "division_financials_modify" ON division_financials
+  FOR ALL USING (
+    EXISTS (
+      SELECT 1 FROM members WHERE auth_user_id = auth.uid() AND grade IN ('G4', 'G5')
+    )
+  );
+
+CREATE INDEX idx_division_financials_lookup ON division_financials(division_id, fiscal_year, month);

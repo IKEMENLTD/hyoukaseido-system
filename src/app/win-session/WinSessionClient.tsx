@@ -6,6 +6,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
 // ---------------------------------------------------------------------------
@@ -14,6 +15,7 @@ import { createClient } from '@/lib/supabase/client';
 
 interface WinSessionEntry {
   id: string;
+  entryMemberId: string;
   memberName: string;
   divisionName: string;
   winDescription: string;
@@ -71,10 +73,12 @@ export default function WinSessionClient({
   memberDivisionId,
   orgId,
 }: WinSessionClientProps) {
+  const router = useRouter();
   const [sessions, setSessions] = useState<WinSession[]>(initialSessions);
   const [category, setCategory] = useState('');
   const [winDescription, setWinDescription] = useState('');
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [message, setMessage] = useState<FormMessage | null>(null);
 
   const canSubmit = winDescription.trim().length > 0 && !saving;
@@ -149,7 +153,7 @@ export default function WinSessionClient({
           id, session_date,
           facilitator:members!win_sessions_facilitator_id_fkey (name),
           win_session_entries (
-            id, win_description, category,
+            id, member_id, win_description, category,
             members (name),
             divisions (name)
           )
@@ -165,6 +169,7 @@ export default function WinSessionClient({
             facilitator: { name: string } | null;
             win_session_entries: Array<{
               id: string;
+              member_id: string;
               win_description: string;
               category: string | null;
               members: { name: string } | null;
@@ -177,6 +182,7 @@ export default function WinSessionClient({
           facilitator: s.facilitator?.name ?? '未設定',
           entries: (s.win_session_entries ?? []).map((e) => ({
             id: e.id,
+            entryMemberId: e.member_id,
             memberName: e.members?.name ?? '不明',
             divisionName: e.divisions?.name ?? '不明',
             winDescription: e.win_description,
@@ -195,6 +201,35 @@ export default function WinSessionClient({
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleDeleteEntry = async (entryId: string) => {
+    setDeletingId(entryId);
+    setMessage(null);
+
+    const supabase = createClient();
+    const { error } = await supabase
+      .from('win_session_entries')
+      .delete()
+      .eq('id', entryId)
+      .eq('member_id', memberId); // 自分の投稿のみ削除可
+
+    setDeletingId(null);
+
+    if (error) {
+      setMessage({ type: 'error', text: '削除に失敗しました' });
+      return;
+    }
+
+    // ローカルステートから即座に反映
+    setSessions((prev) =>
+      prev.map((s) => ({
+        ...s,
+        entries: s.entries.filter((e) => e.id !== entryId),
+      })).filter((s) => s.entries.length > 0)
+    );
+    setMessage({ type: 'success', text: '投稿を削除しました' });
+    router.refresh();
   };
 
   return (
@@ -307,19 +342,31 @@ export default function WinSessionClient({
                     : 'text-[#a3a3a3] border-[#333333]';
                   return (
                     <div key={entry.id} className="px-4 py-3">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-sm text-[#e5e5e5] font-bold">
-                          {entry.memberName}
-                        </span>
-                        <span className="text-[10px] text-[#404040]">
-                          {entry.divisionName}
-                        </span>
-                        {entry.category && (
-                          <span
-                            className={`px-2 py-0.5 border text-[10px] font-bold ${categoryColor}`}
-                          >
-                            {entry.category}
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-[#e5e5e5] font-bold">
+                            {entry.memberName}
                           </span>
+                          <span className="text-[10px] text-[#404040]">
+                            {entry.divisionName}
+                          </span>
+                          {entry.category && (
+                            <span
+                              className={`px-2 py-0.5 border text-[10px] font-bold ${categoryColor}`}
+                            >
+                              {entry.category}
+                            </span>
+                          )}
+                        </div>
+                        {entry.entryMemberId === memberId && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteEntry(entry.id)}
+                            disabled={deletingId === entry.id}
+                            className="px-2 py-0.5 border border-[#333333] text-[10px] text-[#737373] hover:border-[#ef4444] hover:text-[#ef4444] transition-colors disabled:opacity-50"
+                          >
+                            {deletingId === entry.id ? '...' : '削除'}
+                          </button>
                         )}
                       </div>
                       <p className="text-sm text-[#a3a3a3] leading-relaxed">

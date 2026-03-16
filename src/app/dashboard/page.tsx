@@ -275,14 +275,24 @@ export default async function DashboardPage() {
     totalBonus: Math.round(r.totalBonus),
   }));
 
-  // -- ROI --
+  // -- ROI (実データベース) --
   const monthlySalaryCost = members.reduce((sum, m) => sum + m.monthly_salary, 0);
   const memberCount = members.length;
   const perPersonCost = memberCount > 0 ? Math.round(monthlySalaryCost / memberCount) : 0;
 
-  // monthlyRevenue: 評価制度単体では売上データを持たないため、
-  // 給与コストの4倍を暫定表示（実運用ではrevenueテーブル等から取得すべき）
-  const monthlyRevenue = monthlySalaryCost * 4;
+  // 直近月の財務データから全社売上を集計
+  const now = new Date();
+  const roiYear = now.getFullYear();
+  const roiMonth = now.getMonth() + 1;
+  const { data: financialRows } = await supabase
+    .from('division_financials')
+    .select('revenue')
+    .eq('fiscal_year', roiYear)
+    .eq('month', roiMonth > 1 ? roiMonth - 1 : 12); // 前月実績
+
+  const monthlyRevenue = financialRows && financialRows.length > 0
+    ? (financialRows as Array<{ revenue: number }>).reduce((sum, r) => sum + r.revenue, 0)
+    : monthlySalaryCost * 4; // データなしの場合はフォールバック
   const costRatio = monthlyRevenue > 0 ? (monthlySalaryCost / monthlyRevenue) * 100 : 0;
 
   const roiData = {

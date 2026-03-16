@@ -33,6 +33,7 @@ interface EvaluationRow {
   total_score: number | null;
   rank: Rank | null;
   salary_change_recommended: number | null;
+  promotion_eligibility: string | null;
   evaluator_comment: string | null;
   next_actions: string | null;
   grade_at_eval: Grade | null;
@@ -107,7 +108,7 @@ export default async function ResultsPage() {
     .from('evaluations')
     .select(`
       id, quantitative_score, qualitative_score, value_score, total_score,
-      rank, salary_change_recommended, evaluator_comment, next_actions,
+      rank, salary_change_recommended, promotion_eligibility, evaluator_comment, next_actions,
       grade_at_eval, status, updated_at,
       eval_periods (name, half, fiscal_year),
       divisions (name)
@@ -176,6 +177,7 @@ export default async function ResultsPage() {
   const valueScore = evaluation.value_score ?? 0;
   const rank = evaluation.rank ?? 'B';
   const salaryChange = evaluation.salary_change_recommended ?? SALARY_CHANGE[rank];
+  const promotionEligibility = evaluation.promotion_eligibility;
   const evaluatorComment = evaluation.evaluator_comment ?? '';
   const nextActions = evaluation.next_actions ?? '';
   const feedbackDate = evaluation.updated_at
@@ -223,6 +225,15 @@ export default async function ResultsPage() {
               <div className={`text-sm font-bold mt-2 ${salaryChange >= 0 ? 'text-[#22d3ee]' : 'text-[#ef4444]'}`}>
                 {salaryChange >= 0 ? '+' : ''}{salaryChange.toLocaleString()}円
               </div>
+              {promotionEligibility && promotionEligibility !== 'none' && (
+                <div className={`mt-2 px-2 py-0.5 border text-[10px] font-bold ${
+                  promotionEligibility === 'immediate'
+                    ? 'border-[#ccff00] text-[#ccff00]'
+                    : 'border-[#3b82f6] text-[#3b82f6]'
+                }`}>
+                  {promotionEligibility === 'immediate' ? '昇格検討対象' : '昇格候補'}
+                </div>
+              )}
             </div>
           </div>
 

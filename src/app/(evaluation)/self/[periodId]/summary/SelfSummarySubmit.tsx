@@ -7,8 +7,7 @@
 
 import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
-import { updateTotalScoreAndRank } from '@/lib/evaluation/update-evaluation-scores';
+import { submitSelfEvaluation, saveSelfDraft } from '@/lib/evaluation/actions';
 import type { Rank, Phase } from '@/types/evaluation';
 import { PHASE_WEIGHTS } from '@/types/evaluation';
 import EvalRankBadge from '@/components/shared/EvalRankBadge';
@@ -126,24 +125,13 @@ export default function SelfSummarySubmit({
     setSubmitting(true);
     setMessage(null);
 
-    const supabase = createClient();
+    const result = await submitSelfEvaluation(evaluationId, selfComment || null);
 
-    // Calculate and persist total score and rank first
-    await updateTotalScoreAndRank(evaluationId);
-
-    const { error } = await supabase
-      .from('evaluations')
-      .update({
-        self_comment: selfComment || null,
-        status: 'self_submitted',
-      })
-      .eq('id', evaluationId);
-
-    if (error) {
-      setMessage({ type: 'error', text: `提出に失敗しました: ${error.message}` });
-    } else {
+    if (result.success) {
       setMessage({ type: 'success', text: '自己評価を提出しました' });
       router.refresh();
+    } else {
+      setMessage({ type: 'error', text: result.error ?? '提出に失敗しました' });
     }
 
     setSubmitting(false);
@@ -153,17 +141,12 @@ export default function SelfSummarySubmit({
     setSubmitting(true);
     setMessage(null);
 
-    const supabase = createClient();
+    const result = await saveSelfDraft(evaluationId, selfComment || null);
 
-    const { error } = await supabase
-      .from('evaluations')
-      .update({ self_comment: selfComment || null })
-      .eq('id', evaluationId);
-
-    if (error) {
-      setMessage({ type: 'error', text: `保存に失敗しました: ${error.message}` });
-    } else {
+    if (result.success) {
       setMessage({ type: 'success', text: 'コメントを保存しました' });
+    } else {
+      setMessage({ type: 'error', text: result.error ?? '保存に失敗しました' });
     }
 
     setSubmitting(false);

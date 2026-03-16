@@ -8,7 +8,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Rank, Grade, EvaluationStatus } from '@/types/evaluation';
-import { createClient } from '@/lib/supabase/client';
+import { submitFeedback, finalizeEvaluation } from '@/lib/evaluation/actions';
 import EvalRankBadge from '@/components/shared/EvalRankBadge';
 
 // -----------------------------------------------------------------------------
@@ -30,19 +30,21 @@ interface FeedbackTarget {
 
 interface FeedbackClientProps {
   targets: FeedbackTarget[];
+  isAdmin: boolean;
 }
 
 // -----------------------------------------------------------------------------
 // コンポーネント
 // -----------------------------------------------------------------------------
 
-export default function FeedbackClient({ targets: initialTargets }: FeedbackClientProps) {
+export default function FeedbackClient({ targets: initialTargets, isAdmin }: FeedbackClientProps) {
   const router = useRouter();
   const [targets, setTargets] = useState<FeedbackTarget[]>(initialTargets);
   const [openFormId, setOpenFormId] = useState<string | null>(null);
   const [feedbackComment, setFeedbackComment] = useState('');
   const [nextActions, setNextActions] = useState('');
   const [saving, setSaving] = useState(false);
+  const [finalizingId, setFinalizingId] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const handleOpenForm = (target: FeedbackTarget) => {
@@ -63,22 +65,12 @@ export default function FeedbackClient({ targets: initialTargets }: FeedbackClie
     setSaving(true);
     setMessage(null);
 
-    const supabase = createClient();
-    const { error } = await supabase
-      .from('evaluations')
-      .update({
-        evaluator_comment: feedbackComment,
-        next_actions: nextActions,
-        status: 'feedback_done' as const,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', targetId)
-      .eq('status', 'calibrated');
+    const result = await submitFeedback(targetId, feedbackComment || null, nextActions || null);
 
     setSaving(false);
 
-    if (error) {
-      setMessage({ type: 'error', text: 'フィードバックの保存に失敗しました。再度お試しください。' });
+    if (!result.success) {
+      setMessage({ type: 'error', text: result.error ?? 'フィードバックの保存に失敗しました。再度お試しください。' });
       return;
     }
 
@@ -104,6 +96,24 @@ export default function FeedbackClient({ targets: initialTargets }: FeedbackClie
 
     // サーバー側データを再取得してサマリーカードも更新
     router.refresh();
+  };
+
+  const handleFinalize = async (targetId: string) => {
+    setFinalizingId(targetId);
+    setMessage(null);
+
+    const result = await finalizeEvaluation(targetId);
+    setFinalizingId(null);
+
+    if (result.success) {
+      setTargets((prev) =>
+        prev.map((t) => t.id === targetId ? { ...t, status: 'finalized' as EvaluationStatus } : t)
+      );
+      setMessage({ type: 'success', text: '評価を確定しました。' });
+      router.refresh();
+    } else {
+      setMessage({ type: 'error', text: result.error ?? '確定に失敗しました。' });
+    }
   };
 
   return (
@@ -169,6 +179,29 @@ export default function FeedbackClient({ targets: initialTargets }: FeedbackClie
                       <div>
                         <span className="text-xs text-[#737373]">次期アクション:</span>
                         <p className="text-sm text-[#a3a3a3] mt-1">{target.nextActions}</p>
+                      </div>
+                    )}
+                    {isAdmin && target.status === 'feedback_done' && (
+                      <div className="pt-2">
+                        <button
+                          type="button"
+                          onClick={() => handleFinalize(target.id)}
+                          disabled={finalizingId === target.id}
+                          className={`px-3 py-1 border text-xs font-bold ${
+                            finalizingId === target.id
+                              ? 'border-[#333333] text-[#737373] cursor-not-allowed'
+                              : 'border-[#22c55e] text-[#22c55e] hover:bg-[#22c55e]/10'
+                          }`}
+                        >
+                          {finalizingId === target.id ? '処理中...' : '評価確定'}
+                        </button>
+                      </div>
+                    )}
+                    {target.status === 'finalized' && (
+                      <div className="pt-2">
+                        <span className="px-2 py-0.5 border border-[#22c55e] text-[10px] text-[#22c55e] font-bold">
+                          確定済
+                        </span>
                       </div>
                     )}
                   </div>

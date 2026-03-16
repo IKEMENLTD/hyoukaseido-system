@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import HelpButton from "@/components/shared/HelpButton";
@@ -18,17 +18,18 @@ export const metadata: Metadata = {
   title: "評価制度システム v2.0",
   description: "イケメングループ 評価制度管理システム",
   manifest: "/manifest.json",
-  themeColor: "#3b82f6",
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-    maximumScale: 1,
-  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "評価システム",
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  themeColor: "#3b82f6",
 };
 
 const navItems = [

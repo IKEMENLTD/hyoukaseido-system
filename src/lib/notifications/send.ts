@@ -63,6 +63,16 @@ function buildLinePayload(payload: NotificationPayload): Record<string, unknown>
 }
 
 /**
+ * ChatWork Webhook用のペイロードを構築
+ */
+function buildChatworkPayload(payload: NotificationPayload): Record<string, unknown> {
+  const urlSuffix = payload.url ? `\n${payload.url}` : '';
+  return {
+    body: `[info][title]${payload.title}[/title]${payload.message}${urlSuffix}[/info]`,
+  };
+}
+
+/**
  * 単一チャンネルに通知送信
  */
 async function sendToChannel(
@@ -72,7 +82,9 @@ async function sendToChannel(
   const body =
     channel.type === 'slack'
       ? buildSlackPayload(payload)
-      : buildLinePayload(payload);
+      : channel.type === 'chatwork'
+        ? buildChatworkPayload(payload)
+        : buildLinePayload(payload);
 
   try {
     const response = await fetch(channel.webhookUrl, {
@@ -118,6 +130,11 @@ export async function sendNotification(
 
   // eventsにpayload.eventが含まれるチャンネルをフィルタ
   const rows = channels as unknown as NotificationChannelRow[];
+
+  // 通知個人設定: 組織全体で各チャンネルタイプが有効かチェック
+  // (notification_preferencesでslack/lineを無効にしているメンバーが多数の場合、
+  //  チャンネルタイプ自体をスキップすることは現時点では行わない。
+  //  個人設定は将来的にメンバー単位通知で活用する想定)
   const targetChannels: NotificationChannel[] = rows
     .filter((ch) => Array.isArray(ch.events) && ch.events.includes(payload.event))
     .map((ch) => ({

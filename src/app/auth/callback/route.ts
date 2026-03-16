@@ -2,10 +2,49 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
+/** リダイレクト先として許可するパスのプレフィックス */
+const ALLOWED_REDIRECT_PREFIXES = [
+  '/dashboard',
+  '/objectives',
+  '/checkin',
+  '/review',
+  '/admin',
+  '/self/',
+  '/periods/',
+  '/profile',
+  '/feedback',
+  '/calibration',
+  '/results',
+  '/one-on-one',
+  '/improvement-plans',
+  '/win-session',
+  '/quarterly-bonus',
+  '/toss',
+  '/bonus',
+  '/map',
+  '/history',
+];
+
+/**
+ * リダイレクト先パスを検証する。
+ * - '/' で始まり '//' で始まらない（プロトコル相対URL防止）
+ * - 許可リストのプレフィックスに一致する
+ */
+function sanitizeRedirectPath(path: string): string {
+  if (
+    path.startsWith('/') &&
+    !path.startsWith('//') &&
+    ALLOWED_REDIRECT_PREFIXES.some((prefix) => path.startsWith(prefix))
+  ) {
+    return path;
+  }
+  return '/dashboard';
+}
+
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
-  const next = searchParams.get('next') ?? '/dashboard';
+  const next = sanitizeRedirectPath(searchParams.get('next') ?? '/dashboard');
 
   if (code) {
     const cookieStore = await cookies();
@@ -29,9 +68,10 @@ export async function GET(request: Request) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
-      // メールアドレスで未紐づけメンバーを自動リンク
       const { data: { user } } = await supabase.auth.getUser();
-      if (user?.email) {
+
+      // メールアドレスで未紐づけメンバーを自動リンク（メール検証済みの場合のみ）
+      if (user?.email && user.email_confirmed_at) {
         await supabase
           .from('members')
           .update({ auth_user_id: user.id })

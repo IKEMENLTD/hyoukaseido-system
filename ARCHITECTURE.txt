@@ -1,0 +1,764 @@
+================================================================================
+評価制度システム v2.0 アーキテクチャ設計書 (実装版)
+================================================================================
+最終更新: 2026-03-16
+ステータス: 実装済み (本番デプロイ準備完了)
+
+================================================================================
+1. システム概要
+================================================================================
+
+1-1. 目的
+--------
+イケメングループ(7事業部)の人事評価を一元管理するWebシステム。
+四半期OKR x 半期査定のハイブリッド評価制度をデジタル化する。
+
+1-2. 技術スタック
+-----------------
+フロントエンド : Next.js 15 (App Router) + TypeScript + React 19
+スタイル       : Tailwind CSS v4 (INDUSTRIAL VOIDデザインシステム)
+バックエンド   : Supabase (PostgreSQL + Auth + RLS)
+認証           : Supabase Auth (Google OAuth)
+通知           : Slack / LINE / ChatWork Webhook
+ホスティング   : Netlify
+主要パッケージ : @supabase/supabase-js, @supabase/ssr, next, react
+UIユーティリティ: lucide-react (SVGアイコン), recharts (グラフ), clsx, tailwind-merge, class-variance-authority
+設定ファイル   : tsconfig.json, next.config.ts, postcss.config.mjs
+
+1-3. 設計原則
+-------------
+- Server Component優先: データ取得はサーバーサイドで実行
+- Server Actions: 評価系の全データ変更はServer Actions経由(権限チェック+バリデーション)
+  ※ OKR系(checkin/objectives作成/review)はクライアント直接操作+RLS依存(未移行)
+- RLS二重防御: アプリ層+DB層の両方で権限制御
+- 楽観ロック: ステータス遷移は .eq('status', currentStatus).select().single() で検証
+- 型安全: any禁止、全Supabaseクエリに手動型定義
+- 絵文字禁止: SVGアイコンのみ使用 (lucide-react)
+
+1-5. INDUSTRIAL VOIDデザインシステム
+------------------------------------
+背景: #050505 / パネル: #0a0a0a / ボーダー: #1a1a1a
+テキスト: #e5e5e5 / サブ: #737373 / 非活性: #404040
+アクセント: #3b82f6 (blue) / 成功: #22d3ee (cyan) / 警告: #f59e0b / エラー: #ef4444
+ネオン(1%使用): #ccff00
+禁止: 角丸(border-radius)、シャドウ(box-shadow)、暖色グラデーション
+SVGアイコン: strokeLinecap="square", strokeLinejoin="miter"
+
+1-4. 権限モデル
+--------------
+G1 (メンバー)   : 自分のデータのみ閲覧・編集
+G2 (シニア)     : G1と同等
+G3 (マネージャー): 自事業部のデータ閲覧・上長評価・1on1記録
+G4 (事業部長)   : 全事業部データ閲覧・管理機能・キャリブレーション
+G5 (代表)       : 全データ・全機能・組織設定変更
+
+================================================================================
+2. ディレクトリ構造
+================================================================================
+
+src/
+  middleware.ts                        認証ガード (matcher: 静的アセット+auth/callback除外)
+  app/
+    layout.tsx                        ルートレイアウト (ナビバー, HelpButton, SW登録, bg-[#050505])
+    globals.css                       Tailwind v4 + @media print
+    (auth)/login/                     認証ページ
+    (crosssell)/toss/                 トスアップ登録
+    (crosssell)/bonus/                ボーナス実績
+    (crosssell)/map/                  クロスセルマップ
+    (evaluation)/self/[periodId]/     自己評価 (定量/定性/バリュー/サマリー)
+    (evaluation)/periods/[periodId]/  上長評価 (定量/定性/バリュー/サマリー)
+    (evaluation)/history/             評価履歴
+    (okr)/objectives/                 OKR一覧・作成
+    (okr)/objectives/[objectiveId]/   OKR詳細・編集・削除
+    (okr)/checkin/                    週次チェックイン
+    (okr)/review/                     四半期レビュー
+    admin/                            管理機能 (7サブページ)
+    calibration/                      キャリブレーション
+    feedback/                         フィードバック面談
+    results/                          評価結果閲覧
+    dashboard/                        全社/事業部/個人ダッシュボード
+    one-on-one/                       1on1 (新規・履歴)
+    improvement-plans/                改善計画
+    quarterly-bonus/                  四半期インセンティブ
+    win-session/                      ウィンセッション
+    profile/                          プロフィール・通知設定
+    api/notifications/send/           通知送信API
+    auth/callback/                    OAuth callback
+  components/
+    dashboard/                        CompanyOverview, CrossSellMap, DivisionComparison, ROIChart
+    evaluation/                       PhaseIndicator
+    okr/                              CheckinForm, OKRTree
+    shared/                           EvalRankBadge, GradeBar, HelpButton, help-data
+  lib/
+    auth/                             get-member.ts (認証ヘルパー)
+    evaluation/                       actions.ts (13 Server Actions), calculator.ts, get-or-create-evaluation.ts
+    okr/                              actions.ts (OKR/1on1/改善計画/ボーナス)
+    crosssell/                        bonus-calculator.ts
+    notifications/                    client.ts, events.ts, send.ts, types.ts, index.ts
+    supabase/                         client.ts, server.ts, types.ts
+  types/
+    evaluation.ts                     評価関連型定義 (60+型)
+    crosssell.ts                      クロスセル関連型定義
+    okr.ts                            OKR関連型定義
+
+================================================================================
+3. データベーススキーマ (30テーブル)
+================================================================================
+
+--- 組織・メンバー ---
+organizations             組織マスタ
+divisions                 事業部マスタ (phase: profitable/investing)
+members                   メンバー (email, grade G1-G5, monthly_salary)
+division_members          メンバーx事業部 多対多 (role, weight, is_primary, is_head)
+
+--- 等級・テンプレート ---
+grade_definitions         等級定義 (salary_range, expected_multiplier)
+kpi_templates             事業部x職種別KPIテンプレート
+kpi_items                 KPI項目 (weight, threshold_s/a/b/c)
+value_items               バリュー評価項目 (全社共通, max_score)
+behavior_items            行動評価項目 (事業部x職種別)
+rank_thresholds           ランク閾値 (組織別カスタム設定)
+
+--- OKR ---
+okr_periods               OKR四半期期間
+okr_objectives            Objective (company/division/individual)
+okr_key_results           Key Result (target_value, current_value, final_score)
+okr_checkins              週次チェックイン (value, confidence, note)
+
+--- 査定 ---
+eval_periods              評価期間 (7段階ステータス)
+eval_period_okr_periods   評価期間xOKR四半期 中間テーブル
+evaluations               評価レコード (6段階ステータス, total_score, rank, salary_change_recommended)
+eval_kpi_scores           定量KPIスコア (achievement_rate GENERATED列)
+eval_behavior_scores      定性行動評価スコア (self_score/manager_score/final_score, 1-4)
+eval_value_scores         バリュー評価スコア
+
+--- クロスセル ---
+crosssell_routes          経路定義 (from_division -> to_division, bonus rates)
+crosssell_tosses          トスアップ実績 (toss_bonus/receive_bonus GENERATED列)
+
+--- 財務 ---
+division_financials       事業部別月次財務データ (revenue/cost/operating_cost, gross_profit/net_profit GENERATED)
+
+--- その他 ---
+one_on_ones               1on1面談記録
+improvement_plans         改善計画 (milestones JSONB)
+quarterly_bonuses         四半期インセンティブ
+win_sessions              ウィンセッション
+win_session_entries       ウィンセッションエントリー
+notification_channels     通知チャンネル設定
+notification_preferences  通知個人設定
+
+================================================================================
+4. Server Actions一覧
+================================================================================
+
+--- lib/evaluation/actions.ts ---
+saveSelfQuantitativeScores    自己評価: 定量KPI保存
+saveSelfQualitativeScores     自己評価: 定性行動評価保存
+saveSelfValueScores           自己評価: バリュー評価保存
+submitSelfEvaluation          自己評価: 提出 (draft -> self_submitted)
+saveSelfDraft                 自己評価: 下書き保存
+saveManagerQualitativeScores  上長評価: 定性行動評価保存
+saveManagerValueScores        上長評価: バリュー評価保存
+submitManagerEvaluation       上長評価: 提出 (self_submitted -> manager_submitted)
+saveManagerDraft              上長評価: 下書き保存
+calibrateEvaluation           キャリブレーション (manager_submitted -> calibrated)
+submitFeedback                フィードバック (calibrated -> feedback_done)
+finalizeEvaluation            評価確定 (feedback_done -> finalized)
+advanceEvalPeriodStatus       評価期間ステータス進行
+
+--- lib/financials/actions.ts ---
+saveDivisionFinancials        事業部別月次財務データ保存 (upsert)
+getDivisionPhases             四半期実績に基づくフェーズ自動判定
+
+--- lib/okr/actions.ts ---
+updateObjectiveTitle          OKR Objectiveタイトル編集
+deleteObjective               OKR Objective削除 (連鎖: checkins -> KRs -> objective)
+updateOneOnOne                1on1記録編集
+deleteOneOnOne                1on1記録削除
+toggleMilestoneComplete       改善計画マイルストーン完了トグル
+updateImprovementPlanStatus   改善計画ステータス変更 (active -> completed/cancelled)
+markBonusAsPaid               四半期ボーナス支払確定 (approved -> paid)
+
+================================================================================
+5. 通知システム
+================================================================================
+
+5-1. アーキテクチャ
+-------------------
+Client Component -> /api/notifications/send (API Route) -> sendNotification() -> Webhook
+Server Action    -> events.ts の便利関数 -> sendNotification() -> Webhook
+
+5-2. 15種のイベント
+-------------------
+eval_period_start         評価期間開始
+eval_submitted            自己評価提出
+eval_submission_reminder  自己評価リマインド
+manager_eval_request      上長評価依頼
+calibration_start         キャリブレーション開始
+calibration_complete      キャリブレーション完了
+feedback_ready            フィードバック完了
+okr_period_start          OKR期間開始
+okr_checkin_reminder      OKRチェックインリマインド
+okr_review_deadline       OKR振り返り期限
+crosssell_toss            クロスセルトス
+crosssell_contracted      クロスセル成約
+bonus_confirmed           ボーナス確定
+one_on_one_reminder       1on1リマインド
+win_session_reminder      ウィンセッションリマインド
+
+5-3. 自動発火箇所
+-----------------
+submitSelfEvaluation      -> notifyEvalSubmitted
+submitManagerEvaluation   -> notifyManagerEvalRequest
+submitFeedback            -> notifyFeedbackReady
+TossPageClient (登録時)   -> fireNotification(crosssell_toss)
+TossPageClient (成約時)   -> fireNotification(crosssell_contracted)
+
+5-4. 対応チャンネル
+-------------------
+Slack     : blocks形式 + ボタン付きリッチメッセージ
+LINE      : テキストメッセージ
+ChatWork  : [info][title]タグ形式
+
+================================================================================
+6. セキュリティモデル
+================================================================================
+
+6-1. 認証
+---------
+- Google OAuth (Supabase Auth)
+- middleware.ts で未認証ユーザーを /login にリダイレクト
+- auth/callback でメール自動リンク (email_confirmed_at チェック付き)
+- next パラメータは許可リスト方式でオープンリダイレクト防止
+
+6-2. 認可 (アプリ層)
+--------------------
+- admin/layout.tsx: G4/G5のみ (Server Component一括ガード)
+- 各Server Action: verifyEvaluationAccess() で権限・ステータス・事業部チェック
+- G3の事業部横断アクセスをブロック (division_ids照合)
+
+6-3. 認可 (DB層 - RLS)
+-----------------------
+- 全28テーブルでRLS有効
+- evaluations: member_id/evaluator_id/grade+division_idで階層制御
+- eval_*_scores: evaluationsテーブルを経由した間接RLS
+- members_select: USING(true) だが salary は G4/G5のみアプリ側で制御
+- 管理系テーブル: G4/G5のみ書き込み可
+
+6-4. 楽観ロック
+--------------
+- 全ステータス遷移で .eq('status', currentStatus).select('id').single()
+- 0行更新を data=null で検出し、重複操作を防止
+
+6-5. 入力バリデーション
+-----------------------
+- BehaviorScore: 1-4 範囲チェック
+- ValueScore: 1-10 範囲チェック
+- テキスト: 1000-5000文字上限
+- 数値: NaN/Infinity チェック
+- 通知API: レートリミット(5秒/リクエスト)、URL相対パスのみ、文字数制限
+
+================================================================================
+7. 評価エンジン
+================================================================================
+
+7-1. スコア計算フロー
+---------------------
+KPI実績入力 -> 達成率算出 -> KPIランク判定 -> 加重平均 -> quantitative_score
+行動評価入力 -> 平均(1-4) -> 0-100変換 -> qualitative_score
+バリュー評価入力 -> 合計/最大値*100 -> value_score
+
+quantitative_score * weight% + qualitative_score * weight% + value_score * weight%
+= total_score (0-100)
+-> ランク判定 (rank_thresholds DBカスタム or S:90/A:80/B:60/C:40/D:0)
+-> 上位行動ボーナス適用 (+1/+2段階)
+-> 推奨昇給額 (rank_thresholds DBカスタム or S:+5万/A:+3万/B:0/C:-2万/D:-5万)
+-> 昇格適格性 (S=immediate, 2期連続A=candidate)
+
+7-2. フェーズ別ウェイト
+-----------------------
+黒字事業部 (profitable): 定量50% / 定性30% / バリュー20%
+赤字事業部 (investing) : 定量30% / 定性45% / バリュー25%
+
+判定方法:
+  1. division_financials に直近四半期の実績がある → 営業利益>=0 なら profitable
+  2. 実績データなし → divisions.phase の手動設定値をフォールバック
+  ※ 評価作成時(get-or-create-evaluation.ts)にスナップショットされ、以降変わらない
+
+7-3. ステータス遷移
+-------------------
+評価期間: planning -> target_setting -> self_eval -> manager_eval -> calibration -> feedback -> closed
+個別評価: draft -> self_submitted -> manager_submitted -> calibrated -> feedback_done -> finalized
+
+================================================================================
+8. 各ページ詳細
+================================================================================
+
+------------------------------------------------------------------------
+8-1. / (ルート)
+------------------------------------------------------------------------
+ファイル     : app/page.tsx
+種別         : Server Component
+機能         : /dashboard へリダイレクト
+認証         : middleware.ts で制御
+
+------------------------------------------------------------------------
+8-2. /login
+------------------------------------------------------------------------
+ファイル     : app/(auth)/login/page.tsx
+             : app/(auth)/login/layout.tsx
+種別         : Client Component (Supabase Auth UI)
+機能         : Google OAuth ログインボタン
+認証         : 不要
+データ取得   : なし
+操作         : supabase.auth.signInWithOAuth({ provider: 'google' })
+
+------------------------------------------------------------------------
+8-3. /auth/callback
+------------------------------------------------------------------------
+ファイル     : app/auth/callback/route.ts
+種別         : Route Handler (GET)
+機能         : OAuth callback処理
+             : code -> session交換
+             : email_confirmed_at チェック付きメンバー自動リンク
+             : next パラメータ許可リスト方式バリデーション
+セキュリティ : sanitizeRedirectPath() でオープンリダイレクト防止
+
+------------------------------------------------------------------------
+8-4. /dashboard
+------------------------------------------------------------------------
+ファイル     : app/dashboard/page.tsx
+種別         : Server Component
+機能         : 全社ダッシュボード
+             : G4/G5向け: 全社スコア分布、事業部比較、クロスセルマップ、ROI
+             : G3向け: 自事業部のみ
+             : G1/G2向け: 自分の評価サマリー
+データ取得   : evaluations, members, divisions, crosssell_tosses (並列)
+子コンポーネント: CompanyOverview, DivisionComparison, CrossSellMap, ROIChart
+
+------------------------------------------------------------------------
+8-5. /dashboard/divisions/[divisionId]
+------------------------------------------------------------------------
+ファイル     : app/dashboard/divisions/[divisionId]/page.tsx
+種別         : Server Component
+機能         : 事業部別ダッシュボード (メンバー一覧、スコア分布)
+認可         : G3以上
+
+------------------------------------------------------------------------
+8-6. /dashboard/members/[memberId]
+------------------------------------------------------------------------
+ファイル     : app/dashboard/members/[memberId]/page.tsx
+種別         : Server Component
+機能         : 個人ダッシュボード (評価推移、OKR進捗)
+認可         : G3以上
+
+------------------------------------------------------------------------
+8-7. /objectives
+------------------------------------------------------------------------
+ファイル     : app/(okr)/objectives/page.tsx
+             : app/(okr)/objectives/ObjectiveFormClient.tsx
+種別         : Server + Client Component
+機能         : OKR一覧 (OKRTree表示) + 新規作成フォーム
+データ取得   : okr_objectives + okr_key_results (ネストselect)
+操作         : Supabase直接insert (objectives + key_results) ※Server Action未移行、RLS依存
+子コンポーネント: OKRTree, ObjectiveFormClient
+
+------------------------------------------------------------------------
+8-8. /objectives/[objectiveId]
+------------------------------------------------------------------------
+ファイル     : app/(okr)/objectives/[objectiveId]/page.tsx
+             : app/(okr)/objectives/[objectiveId]/ObjectiveActions.tsx
+種別         : Server + Client Component
+機能         : OKR詳細 + KR進捗 + チェックイン履歴
+             : タイトル編集 (Server Action: updateObjectiveTitle)
+             : 削除 (Server Action: deleteObjective, G4+のみ)
+データ取得   : okr_objectives + okr_key_results + okr_checkins (ネスト)
+
+------------------------------------------------------------------------
+8-9. /checkin
+------------------------------------------------------------------------
+ファイル     : app/(okr)/checkin/page.tsx
+             : app/(okr)/checkin/CheckinPageClient.tsx
+種別         : Server + Client Component
+機能         : 週次OKRチェックイン入力
+データ取得   : 自分のactive OKR + KR一覧
+操作         : okr_key_results update + okr_checkins insert ※Server Action未移行、RLS依存
+子コンポーネント: CheckinForm
+
+------------------------------------------------------------------------
+8-10. /review
+------------------------------------------------------------------------
+ファイル     : app/(okr)/review/page.tsx
+             : app/(okr)/review/ReviewClient.tsx
+種別         : Server + Client Component
+機能         : 四半期OKRレビュー (final_score 0.0-1.0 入力)
+データ取得   : okr_periods (reviewing) + objectives + key_results
+操作         : okr_key_results update (final_score) ※Server Action未移行、RLS依存
+
+------------------------------------------------------------------------
+8-11. /self/[periodId]
+------------------------------------------------------------------------
+ファイル     : app/(evaluation)/self/[periodId]/page.tsx
+種別         : Server Component
+機能         : 自己評価 概要ページ (4セクションへのナビゲーション)
+データ取得   : eval_periods + evaluations (get-or-create-evaluation)
+認可         : 本人のみ
+
+------------------------------------------------------------------------
+8-12. /self/[periodId]/quantitative
+------------------------------------------------------------------------
+ファイル     : app/(evaluation)/self/[periodId]/quantitative/page.tsx
+             : SelfQuantitativeForm.tsx
+種別         : Server + Client Component
+機能         : 自己評価 定量KPI入力 (目標値/実績値/備考)
+データ取得   : kpi_items (テンプレート) + eval_kpi_scores (既存)
+操作         : Server Action: saveSelfQuantitativeScores
+             : 自動: recalculateQuantitativeScore (ランク判定+加重平均)
+
+------------------------------------------------------------------------
+8-13. /self/[periodId]/qualitative
+------------------------------------------------------------------------
+ファイル     : app/(evaluation)/self/[periodId]/qualitative/page.tsx
+             : SelfQualitativeForm.tsx
+種別         : Server + Client Component
+機能         : 自己評価 定性行動評価 (4段階スコア+コメント)
+操作         : Server Action: saveSelfQualitativeScores
+             : 自動: recalculateQualitativeScore
+
+------------------------------------------------------------------------
+8-14. /self/[periodId]/values
+------------------------------------------------------------------------
+ファイル     : app/(evaluation)/self/[periodId]/values/page.tsx
+             : SelfValuesForm.tsx
+種別         : Server + Client Component
+機能         : 自己評価 バリュー評価 (1-max_scoreスコア+エビデンス)
+操作         : Server Action: saveSelfValueScores
+             : 自動: recalculateValueScore
+
+------------------------------------------------------------------------
+8-15. /self/[periodId]/summary
+------------------------------------------------------------------------
+ファイル     : app/(evaluation)/self/[periodId]/summary/page.tsx
+             : SelfSummarySubmit.tsx
+種別         : Server + Client Component
+機能         : 自己評価 サマリー確認 + 提出
+             : スコア内訳テーブル、推定ランク表示、自己コメント入力
+操作         : Server Action: submitSelfEvaluation (draft -> self_submitted)
+             : Server Action: saveSelfDraft (コメントのみ保存)
+             : 自動: recalculateTotalScoreAndRank + promotion_eligibility計算
+通知         : notifyEvalSubmitted (成功時)
+
+------------------------------------------------------------------------
+8-16. /periods/[periodId]
+------------------------------------------------------------------------
+ファイル     : app/(evaluation)/periods/[periodId]/page.tsx
+種別         : Server Component
+機能         : 上長評価 概要ページ (対象メンバー一覧)
+認可         : G3+ (G3は自事業部のみ)
+
+------------------------------------------------------------------------
+8-17. /periods/[periodId]/quantitative
+------------------------------------------------------------------------
+ファイル     : app/(evaluation)/periods/[periodId]/quantitative/page.tsx
+             : ManagerQuantitativeForm.tsx
+種別         : Server + Client Component (読み取り専用参照)
+機能         : 上長評価 定量KPI参照 (自己評価の確認画面)
+
+------------------------------------------------------------------------
+8-18. /periods/[periodId]/qualitative
+------------------------------------------------------------------------
+ファイル     : app/(evaluation)/periods/[periodId]/qualitative/page.tsx
+             : ManagerQualitativeForm.tsx
+種別         : Server + Client Component
+機能         : 上長評価 定性行動評価入力 (自己評価参照+上長スコア+上位行動フラグ)
+操作         : Server Action: saveManagerQualitativeScores
+認可         : G3+ (G3は自事業部のみ)
+
+------------------------------------------------------------------------
+8-19. /periods/[periodId]/values
+------------------------------------------------------------------------
+ファイル     : app/(evaluation)/periods/[periodId]/values/page.tsx
+             : ManagerValuesForm.tsx
+種別         : Server + Client Component
+機能         : 上長評価 バリュー評価入力 (自己評価+エビデンス参照)
+操作         : Server Action: saveManagerValueScores
+
+------------------------------------------------------------------------
+8-20. /periods/[periodId]/summary
+------------------------------------------------------------------------
+ファイル     : app/(evaluation)/periods/[periodId]/summary/page.tsx
+             : ManagerSummarySubmit.tsx
+種別         : Server + Client Component
+機能         : 上長評価 サマリー確認+提出 (コメント+次期アクション入力)
+操作         : Server Action: submitManagerEvaluation (self_submitted -> manager_submitted)
+             : Server Action: saveManagerDraft
+通知         : notifyManagerEvalRequest (成功時)
+
+------------------------------------------------------------------------
+8-21. /history
+------------------------------------------------------------------------
+ファイル     : app/(evaluation)/history/page.tsx
+種別         : Server Component
+機能         : 自分の過去評価履歴一覧
+データ取得   : evaluations (member_id = 自分) + eval_periods join
+
+------------------------------------------------------------------------
+8-22. /calibration
+------------------------------------------------------------------------
+ファイル     : app/calibration/page.tsx
+             : app/calibration/CalibrationClient.tsx
+種別         : Server + Client Component
+機能         : 全社キャリブレーション (ランク分布調整)
+             : 目標分布 vs 現在分布のリアルタイム比較
+             : ランクドロップダウンで調整 -> 一括確定
+認可         : G4/G5のみ (page.tsxでチェック)
+操作         : Server Action: calibrateEvaluation (1件ずつ)
+
+------------------------------------------------------------------------
+8-23. /feedback
+------------------------------------------------------------------------
+ファイル     : app/feedback/page.tsx
+             : app/feedback/FeedbackClient.tsx
+種別         : Server + Client Component
+機能         : フィードバック面談記録
+             : calibrated状態の評価にコメント+次期アクション入力
+             : feedback_done後に「評価確定」ボタン (G4/G5のみ)
+認可         : G3+
+操作         : Server Action: submitFeedback (calibrated -> feedback_done)
+             : Server Action: finalizeEvaluation (feedback_done -> finalized)
+通知         : notifyFeedbackReady (成功時)
+
+------------------------------------------------------------------------
+8-24. /results
+------------------------------------------------------------------------
+ファイル     : app/results/page.tsx
+             : app/results/PrintButton.tsx
+種別         : Server Component + Client Component (印刷ボタン)
+機能         : 評価結果閲覧 (feedback_done/finalized)
+             : 総合スコア、ランク、昇給額、昇格適格性
+             : KPI詳細テーブル、行動評価詳細、バリュー評価詳細
+             : 上長コメント、次期アクション表示
+             : window.print() による印刷対応
+
+------------------------------------------------------------------------
+8-25. /toss
+------------------------------------------------------------------------
+ファイル     : app/(crosssell)/toss/page.tsx
+             : app/(crosssell)/toss/TossPageClient.tsx
+種別         : Server + Client Component
+機能         : トスアップ登録 + 一覧表示
+             : 経路選択 -> 受け手選択 -> メモ入力 -> 登録
+             : ステータス遷移: tossed -> in_progress -> contracted/cancelled
+             : 成約時: 粗利入力 -> DB GENERATED列でボーナス自動計算
+データ取得   : crosssell_routes, members, crosssell_tosses
+通知         : fireNotification(crosssell_toss) / (crosssell_contracted)
+
+------------------------------------------------------------------------
+8-26. /bonus
+------------------------------------------------------------------------
+ファイル     : app/(crosssell)/bonus/page.tsx
+種別         : Server Component
+機能         : 自分のクロスセルボーナス実績一覧
+
+------------------------------------------------------------------------
+8-27. /map
+------------------------------------------------------------------------
+ファイル     : app/(crosssell)/map/page.tsx
+種別         : Server Component
+機能         : 事業部間クロスセルマップ (トス件数/粗利/ボーナスの可視化)
+子コンポーネント: CrossSellMap
+
+------------------------------------------------------------------------
+8-28. /one-on-one/new
+------------------------------------------------------------------------
+ファイル     : app/one-on-one/new/page.tsx
+             : app/one-on-one/new/OneOnOneNewClient.tsx
+種別         : Server + Client Component
+機能         : 1on1面談記録の新規登録
+             : メンバー選択 -> OKR進捗自動表示 -> 各項目入力
+認可         : G3+ (manager_idが自分)
+
+------------------------------------------------------------------------
+8-29. /one-on-one/history
+------------------------------------------------------------------------
+ファイル     : app/one-on-one/history/page.tsx
+             : app/one-on-one/history/OneOnOneActions.tsx
+種別         : Server + Client Component
+機能         : 1on1面談履歴 (ページネーション付き)
+             : 削除機能 (G4/G5のみ)
+操作         : Server Action: deleteOneOnOne
+
+------------------------------------------------------------------------
+8-30. /improvement-plans
+------------------------------------------------------------------------
+ファイル     : app/improvement-plans/page.tsx
+             : app/improvement-plans/ImprovementPlanFormClient.tsx
+             : app/improvement-plans/PlanActions.tsx
+種別         : Server + Client Component
+機能         : C/Dランクメンバーの改善計画管理
+             : 新規作成 (マイルストーン付き)
+             : マイルストーン完了チェック (Server Action: toggleMilestoneComplete)
+             : ステータス変更 (Server Action: updateImprovementPlanStatus)
+認可         : G3+
+
+------------------------------------------------------------------------
+8-31. /quarterly-bonus
+------------------------------------------------------------------------
+ファイル     : app/quarterly-bonus/page.tsx
+             : app/quarterly-bonus/BonusClient.tsx
+種別         : Server + Client Component
+機能         : 四半期インセンティブ管理
+             : 新規作成 (G4/G5)
+             : 承認 (pending -> approved, G4/G5)
+             : 支払確定 (approved -> paid, Server Action: markBonusAsPaid)
+
+------------------------------------------------------------------------
+8-32. /win-session
+------------------------------------------------------------------------
+ファイル     : app/win-session/page.tsx
+             : app/win-session/WinSessionClient.tsx
+種別         : Server + Client Component
+機能         : 週次ウィンセッション
+             : 当日セッション自動作成 + エントリー投稿
+             : 自分の投稿の削除
+             : 過去10セッション表示
+
+------------------------------------------------------------------------
+8-33. /profile
+------------------------------------------------------------------------
+ファイル     : app/profile/page.tsx
+             : app/profile/ProfileClient.tsx
+種別         : Server + Client Component
+機能         : プロフィール閲覧 + 通知設定 (Slack/LINE ON/OFF)
+
+------------------------------------------------------------------------
+8-34. /admin (管理メニュー)
+------------------------------------------------------------------------
+ファイル     : app/admin/page.tsx
+             : app/admin/layout.tsx (Server Component権限ガード)
+             : app/admin/AdminBreadcrumb.tsx
+種別         : Server Component
+機能         : 管理機能ハブ (7サブページへのナビゲーション)
+認可         : G4/G5のみ (layout.tsxで一括リダイレクト)
+
+------------------------------------------------------------------------
+8-35. /admin/members
+------------------------------------------------------------------------
+ファイル     : app/admin/members/page.tsx
+             : app/admin/members/MemberManager.tsx
+種別         : Server + Client Component
+機能         : メンバーCRUD (名前/等級/月給/ステータス/事業部紐付け)
+
+------------------------------------------------------------------------
+8-36. /admin/divisions
+------------------------------------------------------------------------
+ファイル     : app/admin/divisions/page.tsx
+             : app/admin/divisions/DivisionManager.tsx
+種別         : Server + Client Component
+機能         : 事業部CRUD (名前/フェーズ/ミッション)
+
+------------------------------------------------------------------------
+8-37. /admin/kpi-templates
+------------------------------------------------------------------------
+ファイル     : app/admin/kpi-templates/page.tsx
+             : app/admin/kpi-templates/KpiTemplateManager.tsx
+種別         : Server + Client Component
+機能         : KPIテンプレート管理 (事業部x職種x評価種別)
+             : KPI項目/行動項目/バリュー項目のCRUD
+
+------------------------------------------------------------------------
+8-38. /admin/eval-periods
+------------------------------------------------------------------------
+ファイル     : app/admin/eval-periods/page.tsx
+             : app/admin/eval-periods/EvalPeriodManager.tsx
+種別         : Server + Client Component
+機能         : 評価期間CRUD + ステータス遷移 + OKR四半期紐付け
+操作         : Server Action: advanceEvalPeriodStatus
+             : eval_period_okr_periods delete/insert (OKR紐付け)
+
+------------------------------------------------------------------------
+8-39. /admin/okr-periods
+------------------------------------------------------------------------
+ファイル     : app/admin/okr-periods/page.tsx
+             : app/admin/okr-periods/OkrPeriodManager.tsx
+種別         : Server + Client Component
+機能         : OKR四半期期間CRUD + ステータス遷移
+
+------------------------------------------------------------------------
+8-40. /admin/notifications
+------------------------------------------------------------------------
+ファイル     : app/admin/notifications/page.tsx
+             : app/admin/notifications/NotificationChannelManager.tsx
+種別         : Server + Client Component
+機能         : Slack/LINE/ChatWorkチャンネル設定
+             : Webhook URL, イベント購読設定, テスト送信
+
+------------------------------------------------------------------------
+8-41. /admin/settings
+------------------------------------------------------------------------
+ファイル     : app/admin/settings/page.tsx
+             : app/admin/settings/SettingsClient.tsx
+種別         : Server + Client Component
+機能         : 組織名/年度設定
+             : 等級定義 (salary_range, expected_multiplier)
+             : バリュー項目管理
+             : ランク閾値カスタム (rank_thresholds テーブル)
+
+------------------------------------------------------------------------
+8-42. /admin/financials
+------------------------------------------------------------------------
+ファイル     : app/admin/financials/page.tsx
+             : app/admin/financials/FinancialsManager.tsx
+種別         : Server + Client Component
+機能         : 事業部別月次財務データの入力・閲覧
+             : 月選択グリッドで7事業部x3カラム(売上/原価/販管費)を一括入力
+             : 粗利・営業利益は自動計算(GENERATED列)
+             : 四半期サマリー表示 (Q1-Q4 営業利益集計)
+操作         : Server Action: saveDivisionFinancials (upsert)
+連携         : ダッシュボードROI計算に実データ提供
+             : 評価作成時のフェーズ自動判定に使用 (get-or-create-evaluation.ts)
+
+------------------------------------------------------------------------
+8-43. /api/notifications/send
+------------------------------------------------------------------------
+ファイル     : app/api/notifications/send/route.ts
+種別         : API Route (POST)
+機能         : 通知送信エンドポイント
+セキュリティ : 認証必須 + G3+権限チェック(管理者限定イベント)
+             : レートリミット(5秒/リクエスト)
+             : title 200文字/message 1000文字上限
+             : URL相対パスのみ
+
+================================================================================
+9. デプロイ
+================================================================================
+
+9-1. 環境変数
+-------------
+NEXT_PUBLIC_SUPABASE_URL      Supabase プロジェクトURL
+NEXT_PUBLIC_SUPABASE_ANON_KEY Supabase anon key
+NEXT_PUBLIC_APP_URL            アプリケーションURL (通知リンク用)
+
+9-2. 静的アセット
+-----------------
+public/sw.js           Service Worker (オフラインキャッシュ, API/authリクエスト除外)
+public/manifest.json   PWAマニフェスト
+src/app/globals.css    Tailwind + @media print(.no-printクラスで印刷非表示制御)
+
+9-3. ビルド
+-----------
+npm run build (Next.js)
+Netlify: 自動デプロイ (main ブランチ push)
+
+9-4. DB初期化
+-------------
+supabase/schema.sql  テーブル+RLS+インデックス作成
+supabase/seed.sql    初期データ (組織/事業部/等級/KPIテンプレート/経路)
+.env.local.example   環境変数テンプレート (コピーして.env.localを作成)
+※ メンバーは管理画面から手動登録 (最初のG5はSupabase Dashboard直接INSERT)
+
+================================================================================
+END OF DOCUMENT
+================================================================================

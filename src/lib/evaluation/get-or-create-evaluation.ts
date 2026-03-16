@@ -72,7 +72,30 @@ export async function getOrCreateEvaluation(
   if (!divMember) return null;
 
   const dm = divMember as unknown as { division_id: string; divisions: { phase: string } | null };
-  const phase: Phase = (dm.divisions?.phase === 'profitable') ? 'profitable' : 'investing';
+
+  // フェーズ判定: 財務データがあれば実績ベース、なければ手動設定値を使用
+  let phase: Phase = (dm.divisions?.phase === 'profitable') ? 'profitable' : 'investing';
+
+  // 直近四半期の営業利益で自動判定を試みる
+  const now = new Date();
+  const prevMonth = now.getMonth(); // 0-11 (前月)
+  const lookbackMonths = prevMonth >= 3
+    ? [prevMonth - 2, prevMonth - 1, prevMonth].map((m) => m + 1)
+    : [prevMonth + 1]; // データが少ない場合は前月のみ
+  const lookbackYear = now.getFullYear();
+
+  const { data: financials } = await supabase
+    .from('division_financials')
+    .select('revenue, cost, operating_cost')
+    .eq('division_id', dm.division_id)
+    .eq('fiscal_year', lookbackYear)
+    .in('month', lookbackMonths);
+
+  if (financials && financials.length > 0) {
+    const rows = financials as Array<{ revenue: number; cost: number; operating_cost: number }>;
+    const totalNetProfit = rows.reduce((sum, r) => sum + (r.revenue - r.cost - r.operating_cost), 0);
+    phase = totalNetProfit >= 0 ? 'profitable' : 'investing';
+  }
 
   // メンバー情報のスナップショット取得
   const { data: member } = await supabase

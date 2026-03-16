@@ -6,8 +6,7 @@
 // =============================================================================
 
 import { useState, useCallback } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import { updateQualitativeScore } from '@/lib/evaluation/update-evaluation-scores';
+import { saveSelfQualitativeScores } from '@/lib/evaluation/actions';
 import type { BehaviorScore } from '@/types/evaluation';
 
 // ---------------------------------------------------------------------------
@@ -98,34 +97,21 @@ export default function SelfQualitativeForm({
     setSaving(true);
     setMessage(null);
 
-    const supabase = createClient();
-    const upsertData: Array<{
-      evaluation_id: string;
-      behavior_item_id: string;
-      self_score: BehaviorScore | null;
-      comment: string | null;
-    }> = [];
-
-    for (const item of behaviorItems) {
+    const scores = behaviorItems.map((item) => {
       const row = rows[item.id];
-      upsertData.push({
-        evaluation_id: evaluationId,
+      return {
         behavior_item_id: item.id,
         self_score: row.self_score,
         comment: row.comment || null,
-      });
-    }
+      };
+    });
 
-    const { error } = await supabase
-      .from('eval_behavior_scores')
-      .upsert(upsertData, { onConflict: 'evaluation_id,behavior_item_id' });
+    const result = await saveSelfQualitativeScores(evaluationId, scores);
 
-    if (error) {
-      setMessage({ type: 'error', text: `保存に失敗しました: ${error.message}` });
-    } else {
-      // Recalculate aggregate qualitative score
-      await updateQualitativeScore(evaluationId);
+    if (result.success) {
       setMessage({ type: 'success', text: '定性評価を保存しました' });
+    } else {
+      setMessage({ type: 'error', text: result.error ?? '保存に失敗しました' });
     }
 
     setSaving(false);

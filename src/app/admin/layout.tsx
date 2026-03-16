@@ -1,41 +1,26 @@
-'use client';
+// =============================================================================
+// 管理画面レイアウト (Server Component)
+// G4/G5 のみアクセス可能。全管理サブページに権限ガードを一括適用する。
+// =============================================================================
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { getCurrentMember } from '@/lib/auth/get-member';
+import { redirect } from 'next/navigation';
+import { AdminBreadcrumb } from './AdminBreadcrumb';
 
-export default function AdminLayout({
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const pathname = usePathname();
-  const isSubPage = pathname !== '/admin';
+  const member = await getCurrentMember();
+
+  if (!member || !['G4', 'G5'].includes(member.grade)) {
+    redirect('/dashboard');
+  }
 
   return (
     <>
-      {isSubPage && (
-        <div className="border-b border-[#1a1a1a] bg-[#050505] px-6 py-2">
-          <Link
-            href="/admin"
-            className="inline-flex items-center gap-1.5 text-xs text-[#737373] hover:text-[#3b82f6] transition-colors"
-          >
-            <svg
-              className="w-3.5 h-3.5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="square"
-                strokeLinejoin="miter"
-                d="M19 12H5M12 19l-7-7 7-7"
-              />
-            </svg>
-            管理メニュー
-          </Link>
-        </div>
-      )}
+      <AdminBreadcrumb />
       {children}
     </>
   );

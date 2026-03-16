@@ -6,7 +6,7 @@
 'use client';
 
 import { useState, useCallback, useMemo } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { calibrateEvaluation } from '@/lib/evaluation/actions';
 import EvalRankBadge from '@/components/shared/EvalRankBadge';
 import type { Rank } from '@/types/evaluation';
 
@@ -112,20 +112,13 @@ export default function CalibrationClient({ evalPeriodName, evaluations }: Calib
     setSubmitSuccess(false);
 
     try {
-      const supabase = createClient();
-      const updates = evaluations.map((evaluation) => ({
-        id: evaluation.id,
-        finalRank: finalRanks[evaluation.id],
-      }));
+      for (const evaluation of evaluations) {
+        const rank = finalRanks[evaluation.id];
+        if (!rank) continue;
 
-      for (const item of updates) {
-        const { error } = await supabase
-          .from('evaluations')
-          .update({ rank: item.finalRank, status: 'calibrated' as const })
-          .eq('id', item.id);
-
-        if (error) {
-          throw new Error(`評価ID ${item.id} の更新に失敗しました: ${error.message}`);
+        const result = await calibrateEvaluation(evaluation.id, rank);
+        if (!result.success) {
+          throw new Error(result.error ?? `評価ID ${evaluation.id} の更新に失敗しました`);
         }
       }
 

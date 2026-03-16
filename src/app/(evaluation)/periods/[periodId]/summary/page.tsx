@@ -209,7 +209,6 @@ export default async function SummaryPage(props: SummaryPageProps) {
         <ManagerSummarySubmit
           evaluationId={evalData.id}
           periodId={periodId}
-          currentManagerId={currentMember.id}
           memberName={member.name}
           grade={evalData.grade_at_eval}
           divisionName={divisionName}

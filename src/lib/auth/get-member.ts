@@ -11,6 +11,7 @@ export interface CurrentMember {
   grade: Grade;
   monthly_salary: number;
   org_id: string;
+  division_ids: string[];
 }
 
 /**
@@ -32,11 +33,20 @@ export async function getCurrentMember(): Promise<CurrentMember | null> {
 
   if (!member) return null;
 
+  // 所属事業部IDリストを取得
+  const { data: divMemberships } = await supabase
+    .from('division_members')
+    .select('division_id')
+    .eq('member_id', member.id as string);
+
   return {
     id: member.id as string,
     name: member.name as string,
     grade: member.grade as Grade,
     monthly_salary: member.monthly_salary as number,
     org_id: member.org_id as string,
+    division_ids: divMemberships
+      ? (divMemberships as Array<{ division_id: string }>).map((d) => d.division_id)
+      : [],
   };
 }

@@ -6,8 +6,7 @@
 // =============================================================================
 
 import { useState, useCallback } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import { updateQuantitativeScore } from '@/lib/evaluation/update-evaluation-scores';
+import { saveSelfQuantitativeScores } from '@/lib/evaluation/actions';
 import type { Rank } from '@/types/evaluation';
 import EvalRankBadge from '@/components/shared/EvalRankBadge';
 
@@ -114,58 +113,22 @@ export default function SelfQuantitativeForm({
     setSaving(true);
     setMessage(null);
 
-    const supabase = createClient();
-    const upsertData: Array<{
-      evaluation_id: string;
-      kpi_item_id: string;
-      target_value: number | null;
-      actual_value: number | null;
-      note: string | null;
-    }> = [];
-
-    for (const item of kpiItems) {
+    const scores = kpiItems.map((item) => {
       const row = rows[item.id];
-      const targetVal = row.target_value ? parseFloat(row.target_value) : null;
-      const actualVal = row.actual_value ? parseFloat(row.actual_value) : null;
-
-      upsertData.push({
-        evaluation_id: evaluationId,
+      return {
         kpi_item_id: item.id,
-        target_value: targetVal,
-        actual_value: actualVal,
+        target_value: row.target_value ? parseFloat(row.target_value) : null,
+        actual_value: row.actual_value ? parseFloat(row.actual_value) : null,
         note: row.note || null,
-      });
-    }
+      };
+    });
 
-    const { error } = await supabase
-      .from('eval_kpi_scores')
-      .upsert(upsertData, { onConflict: 'evaluation_id,kpi_item_id' });
+    const result = await saveSelfQuantitativeScores(evaluationId, scores);
 
-    if (error) {
-      setMessage({ type: 'error', text: `保存に失敗しました: ${error.message}` });
-    } else {
-      // Update ranks for each KPI item
-      for (const item of kpiItems) {
-        const row = rows[item.id];
-        const targetNum = row.target_value ? parseFloat(row.target_value) : null;
-        const actualNum = row.actual_value ? parseFloat(row.actual_value) : null;
-
-        if (targetNum !== null && actualNum !== null && targetNum > 0) {
-          const rate = calculateAchievementRate(targetNum, actualNum);
-          const rank = estimateRank(rate, item.threshold_s, item.threshold_a, item.threshold_b, item.threshold_c);
-
-          await supabase
-            .from('eval_kpi_scores')
-            .update({ rank })
-            .eq('evaluation_id', evaluationId)
-            .eq('kpi_item_id', item.id);
-        }
-      }
-
-      // Recalculate aggregate quantitative score
-      await updateQuantitativeScore(evaluationId);
-
+    if (result.success) {
       setMessage({ type: 'success', text: '定量評価を保存しました' });
+    } else {
+      setMessage({ type: 'error', text: result.error ?? '保存に失敗しました' });
     }
 
     setSaving(false);

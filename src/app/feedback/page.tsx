@@ -103,7 +103,7 @@ export default async function FeedbackPage() {
         )}
 
         {/* フィードバック対象者一覧 (クライアントコンポーネントに委譲) */}
-        {targets.length > 0 && <FeedbackClient targets={targets} />}
+        {targets.length > 0 && <FeedbackClient targets={targets} isAdmin={['G4', 'G5'].includes(member.grade)} />}
       </div>
     </div>
   );

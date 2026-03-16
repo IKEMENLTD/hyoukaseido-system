@@ -1,0 +1,306 @@
+'use server';
+
+// =============================================================================
+// OKR Server Actions
+// Objective/KeyResultの編集・削除をサーバーサイドで処理
+// =============================================================================
+
+import { createClient } from '@/lib/supabase/server';
+import { getCurrentMember } from '@/lib/auth/get-member';
+
+interface ActionResult {
+  success: boolean;
+  error?: string;
+}
+
+// -----------------------------------------------------------------------------
+// Objective タイトル編集
+// -----------------------------------------------------------------------------
+
+export async function updateObjectiveTitle(
+  objectiveId: string,
+  title: string
+): Promise<ActionResult> {
+  const member = await getCurrentMember();
+  if (!member) return { success: false, error: '認証が必要です' };
+
+  if (!title.trim() || title.length > 500) {
+    return { success: false, error: 'タイトルは1〜500文字で入力してください' };
+  }
+
+  const supabase = await createClient();
+
+  // 所有者チェック: 自分のObjective or G3+
+  const { data: objective } = await supabase
+    .from('okr_objectives')
+    .select('member_id')
+    .eq('id', objectiveId)
+    .single();
+
+  if (!objective) return { success: false, error: 'OKRが見つかりません' };
+
+  const obj = objective as { member_id: string | null };
+  if (obj.member_id !== member.id && !['G3', 'G4', 'G5'].includes(member.grade)) {
+    return { success: false, error: '自分のOKRのみ編集可能です' };
+  }
+
+  const { error } = await supabase
+    .from('okr_objectives')
+    .update({ title: title.trim() })
+    .eq('id', objectiveId);
+
+  if (error) {
+    console.error('objective update error:', error.message);
+    return { success: false, error: '更新に失敗しました' };
+  }
+
+  return { success: true };
+}
+
+// -----------------------------------------------------------------------------
+// Objective 削除
+// -----------------------------------------------------------------------------
+
+export async function deleteObjective(
+  objectiveId: string
+): Promise<ActionResult> {
+  const member = await getCurrentMember();
+  if (!member) return { success: false, error: '認証が必要です' };
+
+  if (!['G4', 'G5'].includes(member.grade)) {
+    return { success: false, error: 'OKRの削除はG4以上のみ実行可能です' };
+  }
+
+  const supabase = await createClient();
+
+  // 先にKRの子要素(checkins)を削除、次にKR、最後にObjective
+  const { data: keyResults } = await supabase
+    .from('okr_key_results')
+    .select('id')
+    .eq('objective_id', objectiveId);
+
+  if (keyResults && keyResults.length > 0) {
+    const krIds = (keyResults as Array<{ id: string }>).map((kr) => kr.id);
+    await supabase.from('okr_checkins').delete().in('key_result_id', krIds);
+    await supabase.from('okr_key_results').delete().eq('objective_id', objectiveId);
+  }
+
+  const { error } = await supabase
+    .from('okr_objectives')
+    .delete()
+    .eq('id', objectiveId);
+
+  if (error) {
+    console.error('objective delete error:', error.message);
+    return { success: false, error: '削除に失敗しました' };
+  }
+
+  return { success: true };
+}
+
+// -----------------------------------------------------------------------------
+// 1on1記録 編集
+// -----------------------------------------------------------------------------
+
+export async function updateOneOnOne(
+  recordId: string,
+  data: {
+    okr_progress?: string | null;
+    blockers?: string | null;
+    action_items?: string | null;
+    notes?: string | null;
+  }
+): Promise<ActionResult> {
+  const member = await getCurrentMember();
+  if (!member) return { success: false, error: '認証が必要です' };
+
+  if (!['G3', 'G4', 'G5'].includes(member.grade)) {
+    return { success: false, error: '1on1記録の編集はG3以上のみ実行可能です' };
+  }
+
+  // 文字数制限
+  for (const [, value] of Object.entries(data)) {
+    if (typeof value === 'string' && value.length > 5000) {
+      return { success: false, error: '各フィールドは5000文字以内で入力してください' };
+    }
+  }
+
+  const supabase = await createClient();
+
+  // 所有者チェック
+  const { data: record } = await supabase
+    .from('one_on_ones')
+    .select('manager_id')
+    .eq('id', recordId)
+    .single();
+
+  if (!record) return { success: false, error: '記録が見つかりません' };
+
+  const rec = record as { manager_id: string };
+  if (rec.manager_id !== member.id && !['G4', 'G5'].includes(member.grade)) {
+    return { success: false, error: '自分が記録した1on1のみ編集可能です' };
+  }
+
+  const { error } = await supabase
+    .from('one_on_ones')
+    .update(data)
+    .eq('id', recordId);
+
+  if (error) {
+    console.error('one_on_one update error:', error.message);
+    return { success: false, error: '更新に失敗しました' };
+  }
+
+  return { success: true };
+}
+
+// -----------------------------------------------------------------------------
+// 1on1記録 削除
+// -----------------------------------------------------------------------------
+
+export async function deleteOneOnOne(
+  recordId: string
+): Promise<ActionResult> {
+  const member = await getCurrentMember();
+  if (!member) return { success: false, error: '認証が必要です' };
+
+  if (!['G4', 'G5'].includes(member.grade)) {
+    return { success: false, error: '1on1記録の削除はG4以上のみ実行可能です' };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('one_on_ones')
+    .delete()
+    .eq('id', recordId);
+
+  if (error) {
+    console.error('one_on_one delete error:', error.message);
+    return { success: false, error: '削除に失敗しました' };
+  }
+
+  return { success: true };
+}
+
+// -----------------------------------------------------------------------------
+// 改善計画マイルストーン完了トグル
+// -----------------------------------------------------------------------------
+
+export async function toggleMilestoneComplete(
+  planId: string,
+  milestoneIndex: number
+): Promise<ActionResult> {
+  const member = await getCurrentMember();
+  if (!member) return { success: false, error: '認証が必要です' };
+
+  if (!['G3', 'G4', 'G5'].includes(member.grade)) {
+    return { success: false, error: '改善計画の管理はG3以上のみ実行可能です' };
+  }
+
+  const supabase = await createClient();
+
+  const { data: plan } = await supabase
+    .from('improvement_plans')
+    .select('milestones, manager_id')
+    .eq('id', planId)
+    .single();
+
+  if (!plan) return { success: false, error: '改善計画が見つかりません' };
+
+  const planData = plan as { milestones: Array<{ title: string; due_date: string; completed: boolean }> | null; manager_id: string };
+
+  if (planData.manager_id !== member.id && !['G4', 'G5'].includes(member.grade)) {
+    return { success: false, error: '自分が担当する改善計画のみ操作可能です' };
+  }
+
+  const milestones = planData.milestones;
+  if (!milestones || milestoneIndex < 0 || milestoneIndex >= milestones.length) {
+    return { success: false, error: 'マイルストーンが見つかりません' };
+  }
+
+  milestones[milestoneIndex].completed = !milestones[milestoneIndex].completed;
+
+  const { error } = await supabase
+    .from('improvement_plans')
+    .update({ milestones })
+    .eq('id', planId);
+
+  if (error) {
+    console.error('milestone toggle error:', error.message);
+    return { success: false, error: '更新に失敗しました' };
+  }
+
+  return { success: true };
+}
+
+// -----------------------------------------------------------------------------
+// 改善計画ステータス変更 (active→completed/cancelled)
+// -----------------------------------------------------------------------------
+
+export async function updateImprovementPlanStatus(
+  planId: string,
+  newStatus: 'completed' | 'cancelled',
+  outcome?: string | null
+): Promise<ActionResult> {
+  const member = await getCurrentMember();
+  if (!member) return { success: false, error: '認証が必要です' };
+
+  if (!['G3', 'G4', 'G5'].includes(member.grade)) {
+    return { success: false, error: '改善計画の管理はG3以上のみ実行可能です' };
+  }
+
+  if (outcome && outcome.length > 5000) {
+    return { success: false, error: '結果は5000文字以内で入力してください' };
+  }
+
+  const supabase = await createClient();
+
+  const updateData: Record<string, unknown> = { status: newStatus };
+  if (outcome !== undefined) {
+    updateData.outcome = outcome || null;
+  }
+
+  const { error } = await supabase
+    .from('improvement_plans')
+    .update(updateData)
+    .eq('id', planId)
+    .eq('status', 'active'); // activeからのみ遷移可
+
+  if (error) {
+    console.error('improvement plan status error:', error.message);
+    return { success: false, error: '更新に失敗しました' };
+  }
+
+  return { success: true };
+}
+
+// -----------------------------------------------------------------------------
+// 四半期ボーナス paid遷移
+// -----------------------------------------------------------------------------
+
+export async function markBonusAsPaid(
+  bonusId: string
+): Promise<ActionResult> {
+  const member = await getCurrentMember();
+  if (!member) return { success: false, error: '認証が必要です' };
+
+  if (!['G4', 'G5'].includes(member.grade)) {
+    return { success: false, error: 'ボーナスの支払確定はG4以上のみ実行可能です' };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('quarterly_bonuses')
+    .update({ status: 'paid' })
+    .eq('id', bonusId)
+    .eq('status', 'approved') // 楽観ロック
+    .select('id')
+    .single();
+
+  if (error || !data) {
+    console.error('bonus paid error:', error?.message);
+    return { success: false, error: '支払確定に失敗しました。未承認の可能性があります。' };
+  }
+
+  return { success: true };
+}

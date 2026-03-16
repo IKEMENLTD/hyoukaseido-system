@@ -36,7 +36,9 @@ interface RecentTossRow {
   toss_date: string;
   status: TossStatus;
   gross_profit: number | null;
+  receiver_id: string;
   receiver: { name: string } | null;
+  tosser: { name: string } | null;
   crosssell_routes: {
     to_division: { name: string } | null;
   } | null;
@@ -93,21 +95,22 @@ export default async function TossPage() {
         .select('member_id, divisions (name)')
         .eq('is_primary', true),
 
-      // 4. 最近の自分のトス
+      // 4. 自分が関わるトス（トス元 or 受け手）
       supabase
         .from('crosssell_tosses')
         .select(
           `
-          id, toss_date, status, gross_profit,
+          id, toss_date, status, gross_profit, receiver_id,
           receiver:members!crosssell_tosses_receiver_id_fkey (name),
+          tosser:members!crosssell_tosses_tosser_id_fkey (name),
           crosssell_routes (
             to_division:divisions!crosssell_routes_to_division_id_fkey (name)
           )
         `
         )
-        .eq('tosser_id', member.id)
+        .or(`tosser_id.eq.${member.id},receiver_id.eq.${member.id}`)
         .order('toss_date', { ascending: false })
-        .limit(10),
+        .limit(20),
     ]);
 
   // データをcamelCaseに変換
@@ -143,9 +146,11 @@ export default async function TossPage() {
     id: t.id,
     toDivision: t.crosssell_routes?.to_division?.name ?? '不明',
     receiverName: t.receiver?.name ?? '不明',
+    tosserName: t.tosser?.name ?? '不明',
     tossDate: t.toss_date,
     status: t.status,
     grossProfit: t.gross_profit,
+    isReceiver: t.receiver_id === member.id,
   }));
 
   return (

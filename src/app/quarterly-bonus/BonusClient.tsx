@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { BonusType, BonusStatus } from '@/types/evaluation';
 import { createClient } from '@/lib/supabase/client';
+import { markBonusAsPaid } from '@/lib/okr/actions';
 
 // -----------------------------------------------------------------------------
 // 型定義
@@ -126,6 +127,31 @@ export default function BonusClient({
       ),
     );
     setMessage({ type: 'success', text: 'ボーナスを承認しました。' });
+    router.refresh();
+  };
+
+  // -------------------------------------------------------------------------
+  // 支払確定処理 (approved → paid)
+  // -------------------------------------------------------------------------
+  const handleMarkPaid = async (bonusId: string) => {
+    setApprovingId(bonusId);
+    setMessage(null);
+
+    const result = await markBonusAsPaid(bonusId);
+
+    setApprovingId(null);
+
+    if (!result.success) {
+      setMessage({ type: 'error', text: result.error ?? '支払確定に失敗しました。' });
+      return;
+    }
+
+    setBonuses((prev) =>
+      prev.map((b) =>
+        b.id === bonusId ? { ...b, status: 'paid' as BonusStatus } : b,
+      ),
+    );
+    setMessage({ type: 'success', text: '支払確定しました。' });
     router.refresh();
   };
 
@@ -390,6 +416,19 @@ export default function BonusClient({
                           </button>
                         ) : bonus.status === 'pending' ? (
                           <span className="text-[10px] text-[#f59e0b]">承認待ち</span>
+                        ) : bonus.status === 'approved' && isAdmin ? (
+                          <button
+                            type="button"
+                            onClick={() => handleMarkPaid(bonus.id)}
+                            disabled={isApproving}
+                            className={`px-2 py-1 border text-[10px] font-bold ${
+                              isApproving
+                                ? 'border-[#333333] text-[#737373] cursor-not-allowed'
+                                : 'border-[#22d3ee] text-[#22d3ee] hover:bg-[#22d3ee]/10'
+                            }`}
+                          >
+                            {isApproving ? '処理中...' : '支払確定'}
+                          </button>
                         ) : (
                           <span className="text-[10px] text-[#404040]">
                             {bonus.approvedBy ?? '---'}
