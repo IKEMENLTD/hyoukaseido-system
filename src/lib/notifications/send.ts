@@ -4,6 +4,7 @@
 // =============================================================================
 
 import { createClient } from '@/lib/supabase/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   NotificationPayload,
   NotificationChannel,
@@ -112,12 +113,17 @@ async function sendToChannel(
 /**
  * 通知送信メイン関数
  * 指定イベントに登録されたアクティブな全チャンネルに送信
+ *
+ * @param orgId 組織ID
+ * @param payload 通知ペイロード
+ * @param externalClient 外部から注入するSupabaseクライアント（Cronジョブ等でcookies不要な場合）
  */
 export async function sendNotification(
   orgId: string,
-  payload: NotificationPayload
+  payload: NotificationPayload,
+  externalClient?: SupabaseClient
 ): Promise<NotificationResult[]> {
-  const supabase = await createClient();
+  const supabase = externalClient ?? await createClient();
 
   // このイベントを購読しているアクティブチャンネルを取得
   const { data: channels } = await supabase

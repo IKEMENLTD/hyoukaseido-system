@@ -6,7 +6,9 @@
 // =============================================================================
 
 import { createClient } from '@/lib/supabase/server';
+import { createServiceRoleClient } from '@/lib/supabase/service-role';
 import { getCurrentMember } from '@/lib/auth/get-member';
+import { notifyBonusConfirmed } from '@/lib/notifications/events';
 
 interface ActionResult {
   success: boolean;
@@ -300,6 +302,31 @@ export async function markBonusAsPaid(
   if (error || !data) {
     console.error('bonus paid error:', error?.message);
     return { success: false, error: '支払確定に失敗しました。未承認の可能性があります。' };
+  }
+
+  // 通知: ボーナス支払確定 (fire-and-forget)
+  // service roleクライアントを使用してnotification_channelsのRLSをバイパス
+  try {
+    const bonusServiceClient = createServiceRoleClient();
+    const { data: bonusRow } = await bonusServiceClient
+      .from('quarterly_bonuses')
+      .select('okr_period_id')
+      .eq('id', bonusId)
+      .single();
+
+    if (bonusRow) {
+      const { okr_period_id } = bonusRow as { okr_period_id: string };
+      const { data: periodRow } = await bonusServiceClient
+        .from('okr_periods')
+        .select('name')
+        .eq('id', okr_period_id)
+        .single();
+
+      const periodName = (periodRow as { name: string } | null)?.name ?? '';
+      notifyBonusConfirmed(member.org_id, periodName, bonusServiceClient).catch(() => {});
+    }
+  } catch {
+    // 通知取得失敗はメイン処理をブロックしない
   }
 
   return { success: true };

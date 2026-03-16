@@ -125,6 +125,13 @@ export default function ProfileClient({ profile, memberId, notificationSettings 
             </h3>
           </div>
           <div className="px-4 py-4 space-y-4">
+            {/* 現状の説明 */}
+            <div className="border border-[#1a1a1a] bg-[#111111] px-3 py-2">
+              <p className="text-[11px] text-[#737373] leading-relaxed">
+                現在の通知はチーム全体のチャンネル（Slack/LINE/ChatWork）に送信されます。
+                個人宛通知の設定は今後のアップデートで反映予定です。
+              </p>
+            </div>
             {/* LINE通知 */}
             <div className="flex items-center justify-between border-b border-[#111111] pb-3">
               <div>

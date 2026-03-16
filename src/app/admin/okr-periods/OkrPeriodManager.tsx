@@ -9,6 +9,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { OkrPeriodStatus } from '@/types/okr';
+import { fireNotification } from '@/lib/notifications/client';
 
 // ---------------------------------------------------------------------------
 // 型定義
@@ -215,6 +216,16 @@ export default function OkrPeriodManager({
     if (error) {
       setErrorMessage(`ステータスの更新に失敗しました: ${error.message}`);
       return;
+    }
+
+    // OKR期間開始通知 (fire-and-forget)
+    if (nextStatus === 'active') {
+      fireNotification({
+        event: 'okr_period_start',
+        title: 'OKR期間が開始されました',
+        message: `${advanceTarget.name}のOKR期間が始まりました。OKRの設定をお願いします。`,
+        url: '/objectives',
+      });
     }
 
     setSuccessMessage(

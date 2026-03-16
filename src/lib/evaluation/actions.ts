@@ -7,6 +7,7 @@
 // =============================================================================
 
 import { createClient } from '@/lib/supabase/server';
+import { createServiceRoleClient } from '@/lib/supabase/service-role';
 import { getCurrentMember } from '@/lib/auth/get-member';
 import {
   calculateKPIScore,
@@ -16,7 +17,13 @@ import {
   recommendSalaryChange,
 } from '@/lib/evaluation/calculator';
 import type { KPIThresholds, Phase, Rank, BehaviorScore } from '@/types/evaluation';
-import { notifyEvalSubmitted, notifyManagerEvalRequest } from '@/lib/notifications/events';
+import {
+  notifyEvalSubmitted,
+  notifyManagerEvalRequest,
+  notifyEvalPeriodStart,
+  notifyCalibrationStart,
+  notifyCalibrationComplete,
+} from '@/lib/notifications/events';
 
 // -----------------------------------------------------------------------------
 // 共通ヘルパー
@@ -313,22 +320,23 @@ export async function submitSelfEvaluation(
   await recalculateTotalScoreAndRank(evaluationId);
 
   // 通知: 自己評価提出 → 上長に通知 (fire-and-forget)
+  // service roleクライアントを使用してnotification_channelsのRLSをバイパス
   const member = await getCurrentMember();
   if (member) {
-    const supabase2 = await createClient();
-    const { data: evalPeriod } = await supabase2
+    const serviceClient = createServiceRoleClient();
+    const { data: evalPeriod } = await serviceClient
       .from('evaluations')
       .select('eval_period_id')
       .eq('id', evaluationId)
       .single();
     if (evalPeriod) {
-      const { data: period } = await supabase2
+      const { data: period } = await serviceClient
         .from('eval_periods')
         .select('name')
         .eq('id', (evalPeriod as { eval_period_id: string }).eval_period_id)
         .single();
       const periodName = (period as { name: string } | null)?.name ?? '';
-      notifyEvalSubmitted(member.org_id, member.name, periodName).catch(() => {});
+      notifyEvalSubmitted(member.org_id, member.name, periodName, serviceClient).catch(() => {});
     }
   }
 
@@ -513,8 +521,9 @@ export async function submitManagerEvaluation(
   await recalculateTotalScoreAndRank(evaluationId);
 
   // 通知: 上長評価提出 → キャリブレーション担当に通知 (fire-and-forget)
-  const supabase2 = await createClient();
-  const { data: evalRow } = await supabase2
+  // service roleクライアントを使用してnotification_channelsのRLSをバイパス
+  const serviceClient = createServiceRoleClient();
+  const { data: evalRow } = await serviceClient
     .from('evaluations')
     .select('eval_period_id, member_id')
     .eq('id', evaluationId)
@@ -522,12 +531,12 @@ export async function submitManagerEvaluation(
   if (evalRow) {
     const evalInfo = evalRow as { eval_period_id: string; member_id: string };
     const [periodRes, memberRes] = await Promise.all([
-      supabase2.from('eval_periods').select('name').eq('id', evalInfo.eval_period_id).single(),
-      supabase2.from('members').select('name').eq('id', evalInfo.member_id).single(),
+      serviceClient.from('eval_periods').select('name').eq('id', evalInfo.eval_period_id).single(),
+      serviceClient.from('members').select('name').eq('id', evalInfo.member_id).single(),
     ]);
     const periodName = (periodRes.data as { name: string } | null)?.name ?? '';
     const memberName = (memberRes.data as { name: string } | null)?.name ?? '';
-    notifyManagerEvalRequest(member.org_id, memberName, periodName).catch(() => {});
+    notifyManagerEvalRequest(member.org_id, memberName, periodName, serviceClient).catch(() => {});
   }
 
   return { success: true };
@@ -642,15 +651,17 @@ export async function submitFeedback(
   }
 
   // 通知: フィードバック完了 → メンバーに通知
+  // service roleクライアントを使用してnotification_channelsのRLSをバイパス
   const evalInfo = data as { id: string; member_id: string };
-  const { data: targetMember } = await supabase
+  const feedbackServiceClient = createServiceRoleClient();
+  const { data: targetMember } = await feedbackServiceClient
     .from('members')
     .select('name')
     .eq('id', evalInfo.member_id)
     .single();
   if (targetMember) {
     const { notifyFeedbackReady } = await import('@/lib/notifications/events');
-    notifyFeedbackReady(member.org_id, (targetMember as { name: string }).name).catch(() => {});
+    notifyFeedbackReady(member.org_id, (targetMember as { name: string }).name, feedbackServiceClient).catch(() => {});
   }
 
   return { success: true };
@@ -713,7 +724,7 @@ export async function advanceEvalPeriodStatus(
   const supabase = await createClient();
   const { data: period, error: fetchErr } = await supabase
     .from('eval_periods')
-    .select('status')
+    .select('status, name')
     .eq('id', periodId)
     .single();
 
@@ -721,7 +732,8 @@ export async function advanceEvalPeriodStatus(
     return { success: false, error: '評価期間が見つかりません' };
   }
 
-  const currentStatus = (period as { status: string }).status;
+  const periodData = period as { status: string; name: string };
+  const currentStatus = periodData.status;
   const currentIdx = EVAL_PERIOD_STATUS_ORDER.indexOf(
     currentStatus as typeof EVAL_PERIOD_STATUS_ORDER[number]
   );
@@ -742,6 +754,17 @@ export async function advanceEvalPeriodStatus(
 
   if (error || !data) {
     return { success: false, error: 'ステータスの更新に失敗しました' };
+  }
+
+  // ステータスに応じた通知を発火（fire-and-forget）
+  // service roleクライアントを使用してnotification_channelsのRLSをバイパス
+  const notifyServiceClient = createServiceRoleClient();
+  if (nextStatus === 'self_eval') {
+    notifyEvalPeriodStart(member.org_id, periodData.name, notifyServiceClient).catch(() => {});
+  } else if (nextStatus === 'calibration') {
+    notifyCalibrationStart(member.org_id, periodData.name, notifyServiceClient).catch(() => {});
+  } else if (nextStatus === 'feedback') {
+    notifyCalibrationComplete(member.org_id, periodData.name, notifyServiceClient).catch(() => {});
   }
 
   return { success: true };

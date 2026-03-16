@@ -35,9 +35,17 @@ interface NotificationChannelManagerProps {
 const EVENT_LABELS: Record<string, string> = {
   eval_period_start: '評価期間開始',
   eval_submitted: '評価提出完了',
+  eval_submission_reminder: '自己評価提出リマインダー',
+  manager_eval_request: '上長評価依頼',
+  calibration_start: 'キャリブレーション開始',
+  calibration_complete: 'キャリブレーション完了',
   feedback_ready: 'フィードバック準備完了',
-  okr_checkin_reminder: 'OKRチェックインリマインダー',
   okr_period_start: 'OKR期間開始',
+  okr_checkin_reminder: 'OKRチェックインリマインダー',
+  okr_review_deadline: 'OKR振り返り期限',
+  crosssell_toss: 'トスアップ通知',
+  crosssell_contracted: 'クロスセル成約',
+  bonus_confirmed: 'ボーナス確定',
   one_on_one_reminder: '1on1リマインダー',
   win_session_reminder: 'ウィンセッションリマインダー',
 };
@@ -268,40 +276,28 @@ export default function NotificationChannelManager({
       setSuccessMessage(null);
 
       try {
-        const testMessage = '[テスト] 評価制度システムからのテスト通知です';
+        // サーバーサイドAPI経由でテスト送信 (CORS回避 + webhook URL非露出)
+        const response = await fetch('/api/notifications/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ channelId: channel.id }),
+          signal: AbortSignal.timeout(15000),
+        });
 
-        let response: Response;
-        if (channel.type === 'chatwork') {
-          // ChatWork Webhook API はフォームデータで送信
-          const params = new URLSearchParams({ body: testMessage });
-          response = await fetch(channel.webhookUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: params.toString(),
-            signal: AbortSignal.timeout(10000),
-          });
-        } else {
-          const body =
-            channel.type === 'slack'
-              ? { text: testMessage }
-              : { messages: [{ type: 'text', text: testMessage }] };
-
-          response = await fetch(channel.webhookUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
-            signal: AbortSignal.timeout(10000),
-          });
-        }
+        const data = (await response.json()) as {
+          success?: boolean;
+          error?: string;
+          channelName?: string;
+        };
 
         if (!response.ok) {
-          setErrorMessage(`テスト送信失敗: HTTP ${response.status}`);
+          setErrorMessage(data.error ?? `テスト送信失敗: HTTP ${response.status}`);
           return;
         }
 
         setSuccessMessage(`${channel.channelName} にテスト送信しました`);
       } catch {
-        setErrorMessage('テスト送信に失敗しました。Webhook URLを確認してください。');
+        setErrorMessage('テスト送信に失敗しました。しばらく待ってから再試行してください。');
       } finally {
         setTestingId(null);
       }

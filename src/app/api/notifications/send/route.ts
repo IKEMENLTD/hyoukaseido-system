@@ -5,6 +5,7 @@
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createServiceRoleClient } from '@/lib/supabase/service-role';
 import { sendNotification } from '@/lib/notifications/send';
 import type { NotificationEvent } from '@/lib/notifications/types';
 
@@ -138,12 +139,17 @@ export async function POST(request: Request) {
       );
     }
 
+    // service roleクライアントを使用してRLSをバイパス
+    // (notification_channelsのSELECTはG4/G5のみ許可されているため、
+    //  G1/G2/G3ユーザーが通知を発火する場合にservice roleが必要)
+    const serviceClient = createServiceRoleClient();
+
     const results = await sendNotification(memberRow.org_id, {
       event: body.event,
       title: body.title,
       message: body.message,
       url: body.url,
-    });
+    }, serviceClient);
 
     return NextResponse.json({ results });
   } catch (err: unknown) {
