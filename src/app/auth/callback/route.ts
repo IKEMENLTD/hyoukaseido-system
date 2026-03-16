@@ -72,15 +72,27 @@ export async function GET(request: Request) {
       const { data: { user } } = await supabase.auth.getUser();
 
       // メールアドレスで未紐づけメンバーを自動リンク（メール検証済みの場合のみ）
+      let isFirstLogin = false;
       if (user?.email && user.email_confirmed_at) {
-        await supabase
+        const { data: linked } = await supabase
           .from('members')
           .update({ auth_user_id: user.id })
           .eq('email', user.email)
-          .is('auth_user_id', null);
+          .is('auth_user_id', null)
+          .select('id');
+
+        // リンクが成功した(=初回ログイン)場合はwelcomeフラグを立てる
+        if (linked && linked.length > 0) {
+          isFirstLogin = true;
+        }
       }
 
-      return NextResponse.redirect(`${origin}${next}`);
+      // 初回ログイン時はwelcome=1をクエリパラメータに追加
+      const redirectUrl = new URL(`${origin}${next}`);
+      if (isFirstLogin) {
+        redirectUrl.searchParams.set('welcome', '1');
+      }
+      return NextResponse.redirect(redirectUrl.toString());
     }
 
     console.error('Auth callback error:', error.message);

@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
-export default function LoginPage() {
+function LoginForm() {
+  const searchParams = useSearchParams();
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -13,10 +15,17 @@ export default function LoginPage() {
 
     try {
       const supabase = createClient();
+      // ログイン前のページ(returnTo)をcallbackのnextパラメータに引き継ぐ
+      const returnTo = searchParams.get('returnTo');
+      const callbackUrl = new URL('/auth/callback', window.location.origin);
+      if (returnTo) {
+        callbackUrl.searchParams.set('next', returnTo);
+      }
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: callbackUrl.toString(),
         },
       });
 
@@ -71,5 +80,17 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
+        <span className="text-sm text-[#737373]">読み込み中...</span>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }

@@ -31,7 +31,12 @@ export async function middleware(request: NextRequest) {
     !request.nextUrl.pathname.startsWith('/auth')
   ) {
     const url = request.nextUrl.clone();
+    const returnTo = request.nextUrl.pathname;
     url.pathname = '/login';
+    // ログイン後に元ページに戻すため、returnToパラメータを付与
+    if (returnTo && returnTo !== '/') {
+      url.searchParams.set('returnTo', returnTo);
+    }
     return NextResponse.redirect(url);
   }
 

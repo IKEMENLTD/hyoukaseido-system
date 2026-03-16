@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Sidebar from "@/components/shared/Sidebar";
 import HelpButton from "@/components/shared/HelpButton";
+import WelcomeBanner from "@/components/shared/WelcomeBanner";
+import { Suspense } from "react";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -73,6 +75,9 @@ export default function RootLayout({
             {children}
           </main>
           <HelpButton />
+          <Suspense fallback={null}>
+            <WelcomeBanner />
+          </Suspense>
         </div>
       </body>
     </html>
