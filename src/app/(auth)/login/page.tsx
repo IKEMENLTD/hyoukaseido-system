@@ -35,7 +35,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-[#050505] flex items-center justify-center">
       <div className="w-full max-w-md">
         <div className="border border-[#1a1a1a] bg-[#0a0a0a]">
-          <div className="px-8 py-12 text-center">
+          <div className="px-4 py-8 sm:px-8 sm:py-12 text-center">
             <h1 className="text-2xl font-bold text-[#e5e5e5] tracking-wider mb-2">
               評価制度システム
             </h1>
@@ -44,7 +44,7 @@ export default function LoginPage() {
             </p>
           </div>
 
-          <div className="border-t border-[#1a1a1a] px-8 py-8">
+          <div className="border-t border-[#1a1a1a] px-4 py-6 sm:px-8 sm:py-8">
             <button
               type="button"
               onClick={handleGoogleLogin}

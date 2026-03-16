@@ -468,7 +468,7 @@ export default function DivisionManager({
         >
           <div className="bg-[#0a0a0a] border border-[#1a1a1a] w-full max-w-lg mx-4">
             {/* モーダルヘッダー */}
-            <div className="border-b border-[#1a1a1a] px-6 py-4 flex items-center justify-between">
+            <div className="border-b border-[#1a1a1a] px-3 py-3 sm:px-6 sm:py-4 flex items-center justify-between">
               <h2 className="text-sm font-bold text-[#e5e5e5] uppercase tracking-wider">
                 {modalMode === 'add' && '事業部追加'}
                 {modalMode === 'edit' && '事業部編集'}
@@ -485,7 +485,7 @@ export default function DivisionManager({
             </div>
 
             {/* モーダルボディ */}
-            <div className="px-6 py-4 space-y-4">
+            <div className="px-3 py-3 sm:px-6 sm:py-4 space-y-4">
               {/* エラーメッセージ (モーダル内) */}
               {errorMessage && (
                 <div className="border border-red-900 bg-red-950/30 px-3 py-2 text-xs text-red-400">
@@ -599,7 +599,7 @@ export default function DivisionManager({
             </div>
 
             {/* モーダルフッター */}
-            <div className="border-t border-[#1a1a1a] px-6 py-4 flex items-center justify-end gap-3">
+            <div className="border-t border-[#1a1a1a] px-3 py-3 sm:px-6 sm:py-4 flex items-center justify-end gap-3">
               <button
                 type="button"
                 onClick={closeModal}

@@ -369,7 +369,7 @@ export default function KpiTemplateManager({
 
   // --- 描画: テンプレート作成フォーム ---
   const renderCreateForm = () => (
-    <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-6 space-y-4">
+    <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-3 sm:p-6 space-y-4">
       <h2 className="text-sm font-bold text-[#e5e5e5]">テンプレート新規作成</h2>
 
       {/* 事業部 */}

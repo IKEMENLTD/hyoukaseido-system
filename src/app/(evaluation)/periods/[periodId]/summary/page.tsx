@@ -44,7 +44,7 @@ export default async function SummaryPage(props: SummaryPageProps) {
   if (!currentMember) {
     return (
       <div className="min-h-screen bg-[#050505] p-3 sm:p-6 flex items-center justify-center">
-        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-8 max-w-md text-center">
+        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4 sm:p-8 max-w-md text-center">
           <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">メンバー未登録</h2>
           <p className="text-sm text-[#737373]">
             ログインユーザーにメンバー情報が紐付けられていません。
@@ -59,7 +59,7 @@ export default async function SummaryPage(props: SummaryPageProps) {
   if (!managerGrades.includes(currentMember.grade)) {
     return (
       <div className="min-h-screen bg-[#050505] p-3 sm:p-6 flex items-center justify-center">
-        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-8 max-w-md text-center">
+        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4 sm:p-8 max-w-md text-center">
           <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">アクセス権限がありません</h2>
           <p className="text-sm text-[#737373]">
             上長評価はG3以上の等級のメンバーのみ利用できます。
@@ -96,7 +96,7 @@ export default async function SummaryPage(props: SummaryPageProps) {
     if (!hasAccess) {
       return (
         <div className="min-h-screen bg-[#050505] p-3 sm:p-6 flex items-center justify-center">
-          <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-8 max-w-md text-center">
+          <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4 sm:p-8 max-w-md text-center">
             <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">アクセス権限がありません</h2>
             <p className="text-sm text-[#737373]">
               対象メンバーが所属する事業部の事業部長ではありません。
@@ -117,7 +117,7 @@ export default async function SummaryPage(props: SummaryPageProps) {
   if (!targetMember) {
     return (
       <div className="min-h-screen bg-[#050505] p-3 sm:p-6 flex items-center justify-center">
-        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-8 max-w-md text-center">
+        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4 sm:p-8 max-w-md text-center">
           <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">対象メンバーが見つかりません</h2>
           <p className="text-sm text-[#737373]">
             指定されたメンバーIDに対応するメンバーが存在しません。
@@ -146,7 +146,7 @@ export default async function SummaryPage(props: SummaryPageProps) {
   if (!evaluation) {
     return (
       <div className="min-h-screen bg-[#050505] p-3 sm:p-6 flex items-center justify-center">
-        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-8 max-w-md text-center">
+        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4 sm:p-8 max-w-md text-center">
           <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">評価データが見つかりません</h2>
           <p className="text-sm text-[#737373]">
             対象メンバーの評価レコードが存在しません。自己評価が完了していない可能性があります。

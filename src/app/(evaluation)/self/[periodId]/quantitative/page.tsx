@@ -20,7 +20,7 @@ export default async function SelfQuantitativePage(props: SelfQuantitativePagePr
   if (!member) {
     return (
       <div className="min-h-screen bg-[#050505] p-3 sm:p-6 flex items-center justify-center">
-        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-8 max-w-md text-center">
+        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4 sm:p-8 max-w-md text-center">
           <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">メンバー未登録</h2>
           <p className="text-sm text-[#737373]">
             ログインユーザーにメンバー情報が紐付けられていません。
@@ -35,7 +35,7 @@ export default async function SelfQuantitativePage(props: SelfQuantitativePagePr
   if (!evaluation) {
     return (
       <div className="min-h-screen bg-[#050505] p-3 sm:p-6 flex items-center justify-center">
-        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-8 max-w-md text-center">
+        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4 sm:p-8 max-w-md text-center">
           <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">評価データが見つかりません</h2>
           <p className="text-sm text-[#737373]">評価レコードの作成に失敗しました。</p>
         </div>

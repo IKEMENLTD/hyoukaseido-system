@@ -191,7 +191,7 @@ export default async function DivisionPage(props: DivisionPageProps) {
   if (!currentMember) {
     return (
       <div className="min-h-screen bg-[#050505] p-3 sm:p-6 flex items-center justify-center">
-        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-8 max-w-md text-center">
+        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4 sm:p-8 max-w-md text-center">
           <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">アクセス権限がありません</h2>
           <p className="text-sm text-[#737373]">
             ログインが必要です。
@@ -205,7 +205,7 @@ export default async function DivisionPage(props: DivisionPageProps) {
   if (!allowedGrades.includes(currentMember.grade)) {
     return (
       <div className="min-h-screen bg-[#050505] p-3 sm:p-6 flex items-center justify-center">
-        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-8 max-w-md text-center">
+        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4 sm:p-8 max-w-md text-center">
           <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">アクセス権限がありません</h2>
           <p className="text-sm text-[#737373]">
             適切な権限がありません。
@@ -220,7 +220,7 @@ export default async function DivisionPage(props: DivisionPageProps) {
   if (!division) {
     return (
       <div className="min-h-screen bg-[#050505] p-3 sm:p-6 flex items-center justify-center">
-        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-8 max-w-md text-center">
+        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4 sm:p-8 max-w-md text-center">
           <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">事業部が見つかりません</h2>
           <p className="text-sm text-[#737373]">
             指定された事業部は存在しないか、削除されています。

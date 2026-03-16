@@ -10,7 +10,7 @@ export function AdminBreadcrumb() {
   if (!isSubPage) return null;
 
   return (
-    <div className="border-b border-[#1a1a1a] bg-[#050505] px-6 py-2">
+    <div className="border-b border-[#1a1a1a] bg-[#050505] px-3 py-2 sm:px-6">
       <Link
         href="/admin"
         className="inline-flex items-center gap-1.5 text-xs text-[#737373] hover:text-[#3b82f6] transition-colors"

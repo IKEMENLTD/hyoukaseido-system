@@ -82,7 +82,7 @@ export default async function ObjectivesPage() {
   if (!member) {
     return (
       <div className="min-h-screen bg-[#050505] p-3 sm:p-6 flex items-center justify-center">
-        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-8 max-w-md text-center">
+        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4 sm:p-8 max-w-md text-center">
           <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">メンバー未登録</h2>
           <p className="text-sm text-[#737373]">ログインユーザーにメンバー情報が紐付けられていません。</p>
         </div>
@@ -104,7 +104,7 @@ export default async function ObjectivesPage() {
   if (periodError || !okrPeriod) {
     return (
       <div className="min-h-screen bg-[#050505] p-3 sm:p-6 flex items-center justify-center">
-        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-8 max-w-md text-center">
+        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4 sm:p-8 max-w-md text-center">
           <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">アクティブなOKR期間がありません</h2>
           <p className="text-sm text-[#737373]">OKR期間が設定されていないか、現在有効な期間が見つかりません。</p>
         </div>

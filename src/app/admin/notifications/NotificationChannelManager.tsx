@@ -473,7 +473,7 @@ export default function NotificationChannelManager({
       {/* チャンネル一覧 */}
       <div className="space-y-4">
         {channels.length === 0 && !showAddForm && (
-          <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-12 text-center">
+          <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-6 sm:p-12 text-center">
             <p className="text-sm text-[#737373]">
               通知チャンネルはまだ登録されていません
             </p>

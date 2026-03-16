@@ -252,7 +252,7 @@ export default function ObjectiveFormClient({
 
       {/* フォーム本体 */}
       {formOpen && (
-        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-6 space-y-6">
+        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-3 sm:p-6 space-y-6">
           <h3 className="text-sm font-bold text-[#e5e5e5] uppercase tracking-wider">
             新規OKR作成
           </h3>

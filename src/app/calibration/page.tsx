@@ -15,7 +15,7 @@ export default async function CalibrationPage() {
   if (!member || !['G4', 'G5'].includes(member.grade)) {
     return (
       <div className="min-h-screen bg-[#050505] p-3 sm:p-6 flex items-center justify-center">
-        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-8 max-w-md text-center">
+        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4 sm:p-8 max-w-md text-center">
           <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">アクセス権限がありません</h2>
           <p className="text-sm text-[#737373]">キャリブレーション機能はG4/G5等級のメンバーのみ利用可能です。</p>
         </div>
@@ -36,7 +36,7 @@ export default async function CalibrationPage() {
   if (periodError || !evalPeriod) {
     return (
       <div className="min-h-screen bg-[#050505] p-3 sm:p-6 flex items-center justify-center">
-        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-8 max-w-md text-center">
+        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4 sm:p-8 max-w-md text-center">
           <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">評価期間が見つかりません</h2>
           <p className="text-sm text-[#737373]">
             現在、キャリブレーション対象の評価期間が設定されていません。
@@ -67,7 +67,7 @@ export default async function CalibrationPage() {
   if (evalError) {
     return (
       <div className="min-h-screen bg-[#050505] p-3 sm:p-6 flex items-center justify-center">
-        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-8 max-w-md text-center">
+        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4 sm:p-8 max-w-md text-center">
           <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">データ取得エラー</h2>
           <p className="text-sm text-[#737373]">
             評価データの取得中にエラーが発生しました。しばらく経ってから再度お試しください。
@@ -80,7 +80,7 @@ export default async function CalibrationPage() {
   if (!evaluations || evaluations.length === 0) {
     return (
       <div className="min-h-screen bg-[#050505] p-3 sm:p-6 flex items-center justify-center">
-        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-8 max-w-md text-center">
+        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4 sm:p-8 max-w-md text-center">
           <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">対象データがありません</h2>
           <p className="text-sm text-[#737373]">
             現在の評価期間にキャリブレーション対象の評価データがありません。

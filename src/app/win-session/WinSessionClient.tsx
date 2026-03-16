@@ -314,7 +314,7 @@ export default function WinSessionClient({
 
         {/* 過去のセッション */}
         {sessions.length === 0 ? (
-          <div className="border border-[#1a1a1a] bg-[#0a0a0a] px-4 py-12 text-center">
+          <div className="border border-[#1a1a1a] bg-[#0a0a0a] px-4 py-6 sm:py-12 text-center">
             <p className="text-sm text-[#737373]">
               まだセッションがありません。最初のWINを投稿しましょう。
             </p>

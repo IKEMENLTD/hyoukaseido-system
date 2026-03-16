@@ -590,7 +590,7 @@ export default async function GuidePage() {
         ))}
 
         {/* フッター */}
-        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-6 text-center space-y-2">
+        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-3 sm:p-6 text-center space-y-2">
           <p className="text-sm text-[#a3a3a3]">
             以上が評価サイクルの全28ステップです。このサイクルが半期ごとに繰り返されます。
           </p>
