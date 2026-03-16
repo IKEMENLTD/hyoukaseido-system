@@ -204,7 +204,21 @@ export default function FinancialsManager({
 
     if (result.success) {
       setMessage({ type: 'success', text: `${selectedYear}年${selectedMonth}月のデータを保存しました` });
+      // Server Componentを再取得してpropsを更新
       router.refresh();
+      // 保存した値でcellsを更新（propsリフレッシュまでの間の整合性確保）
+      for (const input of inputs) {
+        const key = cellKey(input.division_id, input.fiscal_year, input.month);
+        setCells((prev) => ({
+          ...prev,
+          [key]: {
+            revenue: String(input.revenue),
+            cost: String(input.cost),
+            operatingCost: String(input.operating_cost),
+            note: input.note ?? '',
+          },
+        }));
+      }
     } else {
       setMessage({ type: 'error', text: result.error ?? '保存に失敗しました' });
     }
@@ -360,11 +374,23 @@ export default function FinancialsManager({
                           className="w-28 bg-[#111111] border border-[#333333] text-[#e5e5e5] text-right px-2 py-1 text-xs focus:border-[#3b82f6] outline-none"
                         />
                       </td>
-                      <td className={`px-4 py-3 text-right text-xs font-bold ${grossProfit >= 0 ? 'text-[#22d3ee]' : 'text-[#ef4444]'}`}>
-                        {cell.revenue || cell.cost ? formatYen(grossProfit) : '---'}
+                      <td className="px-4 py-3 text-right text-xs font-bold">
+                        {cell.revenue || cell.cost ? (
+                          <span className={grossProfit >= 0 ? 'text-[#22d3ee]' : 'text-[#ef4444]'}>
+                            {formatYen(grossProfit)}
+                          </span>
+                        ) : (
+                          <span className="text-[#404040]">---</span>
+                        )}
                       </td>
-                      <td className={`px-4 py-3 text-right text-xs font-bold ${netProfit >= 0 ? 'text-[#22d3ee]' : 'text-[#ef4444]'}`}>
-                        {cell.revenue || cell.cost || cell.operatingCost ? formatYen(netProfit) : '---'}
+                      <td className="px-4 py-3 text-right text-xs font-bold">
+                        {cell.revenue || cell.cost || cell.operatingCost ? (
+                          <span className={netProfit >= 0 ? 'text-[#22d3ee]' : 'text-[#ef4444]'}>
+                            {formatYen(netProfit)}
+                          </span>
+                        ) : (
+                          <span className="text-[#404040]">---</span>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <input
