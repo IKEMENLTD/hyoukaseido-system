@@ -281,7 +281,7 @@ export default function FinancialsManager({
           </div>
           <div>
             <label className="block text-[10px] text-[#737373] uppercase tracking-wider mb-1">月</label>
-            <div className="flex gap-1">
+            <div className="flex flex-wrap gap-1">
               {MONTH_LABELS.map((label, i) => {
                 const m = i + 1;
                 const isSelected = selectedMonth === m;

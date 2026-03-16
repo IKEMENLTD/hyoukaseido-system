@@ -258,7 +258,7 @@ export default async function DivisionPage(props: DivisionPageProps) {
               {kpiAchievement.overall}%
             </span>
           </div>
-          <div className="p-4 grid grid-cols-2 lg:grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {kpiAchievement.items.map((item) => {
               const isAbove = item.achievement >= 100;
               return (
