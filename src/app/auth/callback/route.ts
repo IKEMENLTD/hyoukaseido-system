@@ -23,6 +23,7 @@ const ALLOWED_REDIRECT_PREFIXES = [
   '/bonus',
   '/map',
   '/history',
+  '/guide',
 ];
 
 /**
