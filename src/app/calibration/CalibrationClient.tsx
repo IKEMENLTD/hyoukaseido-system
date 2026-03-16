@@ -132,7 +132,7 @@ export default function CalibrationClient({ evalPeriodName, evaluations }: Calib
   }, [allRanksAssigned, evaluations, finalRanks]);
 
   return (
-    <div className="min-h-screen bg-[#050505] p-6">
+    <div className="min-h-screen bg-[#050505] p-3 sm:p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* ページヘッダー */}
         <div className="flex items-center justify-between">
@@ -180,7 +180,7 @@ export default function CalibrationClient({ evalPeriodName, evaluations }: Calib
           <div className="text-xs text-[#737373] uppercase tracking-wider mb-3">
             ランク分布 (現在 / 目標)
           </div>
-          <div className="grid grid-cols-5 gap-4">
+          <div className="grid grid-cols-3 sm:grid-cols-5 gap-4">
             {RANKS.map((rank) => {
               const count = distribution[rank];
               const pct = totalMembers > 0 ? ((count / totalMembers) * 100).toFixed(0) : '0';

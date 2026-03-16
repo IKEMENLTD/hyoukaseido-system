@@ -155,7 +155,7 @@ export default function TossPageClient({
   }, [selectedRouteId, selectedReceiverId, note, memberId, routes, receivers, router]);
 
   return (
-    <div className="min-h-screen bg-[#050505] p-6">
+    <div className="min-h-screen bg-[#050505] p-3 sm:p-6">
       <div className="max-w-5xl mx-auto space-y-6">
         {/* ページヘッダー */}
         <div>

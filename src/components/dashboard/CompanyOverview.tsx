@@ -66,7 +66,7 @@ export default function CompanyOverview({ data }: CompanyOverviewProps) {
         </div>
       </div>
 
-      <div className="p-4 grid grid-cols-4 gap-3">
+      <div className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard label="総人数" value={data.totalMembers} />
         <StatCard label="平均スコア" value={data.averageScore.toFixed(1)} accent />
         <StatCard label="昇格候補" value={data.promotionCandidates} />

@@ -141,7 +141,7 @@ export default function SelfQualitativeForm({
         <div className="text-xs text-[#737373] uppercase tracking-wider mb-2">
           評価基準
         </div>
-        <div className="grid grid-cols-4 gap-4 text-xs">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
           {SCORE_OPTIONS.map((score) => {
             const config = SCORE_LABELS[score];
             return (

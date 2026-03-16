@@ -29,7 +29,7 @@ export default async function SelfEvalPage(props: SelfEvalPageProps) {
   const member = await getCurrentMember();
   if (!member) {
     return (
-      <div className="min-h-screen bg-[#050505] p-6 flex items-center justify-center">
+      <div className="min-h-screen bg-[#050505] p-3 sm:p-6 flex items-center justify-center">
         <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-8 max-w-md text-center">
           <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">メンバー未登録</h2>
           <p className="text-sm text-[#737373]">
@@ -51,7 +51,7 @@ export default async function SelfEvalPage(props: SelfEvalPageProps) {
 
   if (!period) {
     return (
-      <div className="min-h-screen bg-[#050505] p-6 flex items-center justify-center">
+      <div className="min-h-screen bg-[#050505] p-3 sm:p-6 flex items-center justify-center">
         <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-8 max-w-md text-center">
           <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">評価期間が見つかりません</h2>
           <p className="text-sm text-[#737373]">
@@ -76,7 +76,7 @@ export default async function SelfEvalPage(props: SelfEvalPageProps) {
   const evaluation = await getOrCreateEvaluation(member.id, periodId);
   if (!evaluation) {
     return (
-      <div className="min-h-screen bg-[#050505] p-6 flex items-center justify-center">
+      <div className="min-h-screen bg-[#050505] p-3 sm:p-6 flex items-center justify-center">
         <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-8 max-w-md text-center">
           <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">評価データを作成できません</h2>
           <p className="text-sm text-[#737373]">
@@ -148,7 +148,7 @@ export default async function SelfEvalPage(props: SelfEvalPageProps) {
   ];
 
   return (
-    <div className="min-h-screen bg-[#050505] p-6">
+    <div className="min-h-screen bg-[#050505] p-3 sm:p-6">
       <div className="max-w-5xl mx-auto space-y-6">
         {/* ページヘッダー */}
         <div className="flex items-center justify-between">
@@ -206,7 +206,7 @@ export default async function SelfEvalPage(props: SelfEvalPageProps) {
         )}
 
         {/* 評価メニュー */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-2 sm:grid-cols-4 gap-4">
           {evalSections.map((section) => (
             <a
               key={section.href}

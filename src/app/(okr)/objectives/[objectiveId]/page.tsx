@@ -87,7 +87,7 @@ export default async function ObjectiveDetailPage(props: ObjectiveDetailPageProp
   const member = await getCurrentMember();
   if (!member) {
     return (
-      <div className="min-h-screen bg-[#050505] p-6 flex items-center justify-center">
+      <div className="min-h-screen bg-[#050505] p-3 sm:p-6 flex items-center justify-center">
         <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-8 max-w-md text-center">
           <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">メンバー未登録</h2>
           <p className="text-sm text-[#737373]">ログインユーザーにメンバー情報が紐付けられていません。</p>
@@ -162,7 +162,7 @@ export default async function ObjectiveDetailPage(props: ObjectiveDetailPageProp
   });
 
   return (
-    <div className="min-h-screen bg-[#050505] p-6">
+    <div className="min-h-screen bg-[#050505] p-3 sm:p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Objectiveヘッダー */}
         <div className="border border-[#1a1a1a] bg-[#0a0a0a] px-6 py-5">

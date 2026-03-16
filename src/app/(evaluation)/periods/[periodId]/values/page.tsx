@@ -22,7 +22,7 @@ export default async function ValuesPage(props: ValuesPageProps) {
   const currentMember = await getCurrentMember();
   if (!currentMember) {
     return (
-      <div className="min-h-screen bg-[#050505] p-6 flex items-center justify-center">
+      <div className="min-h-screen bg-[#050505] p-3 sm:p-6 flex items-center justify-center">
         <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-8 max-w-md text-center">
           <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">メンバー未登録</h2>
           <p className="text-sm text-[#737373]">
@@ -37,7 +37,7 @@ export default async function ValuesPage(props: ValuesPageProps) {
   const managerGrades = ['G3', 'G4', 'G5'];
   if (!managerGrades.includes(currentMember.grade)) {
     return (
-      <div className="min-h-screen bg-[#050505] p-6 flex items-center justify-center">
+      <div className="min-h-screen bg-[#050505] p-3 sm:p-6 flex items-center justify-center">
         <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-8 max-w-md text-center">
           <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">アクセス権限がありません</h2>
           <p className="text-sm text-[#737373]">
@@ -64,7 +64,7 @@ export default async function ValuesPage(props: ValuesPageProps) {
 
   if (!targetMember) {
     return (
-      <div className="min-h-screen bg-[#050505] p-6 flex items-center justify-center">
+      <div className="min-h-screen bg-[#050505] p-3 sm:p-6 flex items-center justify-center">
         <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-8 max-w-md text-center">
           <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">対象メンバーが見つかりません</h2>
           <p className="text-sm text-[#737373]">
@@ -88,7 +88,7 @@ export default async function ValuesPage(props: ValuesPageProps) {
 
   if (!evaluation) {
     return (
-      <div className="min-h-screen bg-[#050505] p-6 flex items-center justify-center">
+      <div className="min-h-screen bg-[#050505] p-3 sm:p-6 flex items-center justify-center">
         <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-8 max-w-md text-center">
           <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">評価データが見つかりません</h2>
           <p className="text-sm text-[#737373]">
@@ -135,7 +135,7 @@ export default async function ValuesPage(props: ValuesPageProps) {
   const isReadonly = readonlyStatuses.includes(evalRecord.status);
 
   return (
-    <div className="min-h-screen bg-[#050505] p-6">
+    <div className="min-h-screen bg-[#050505] p-3 sm:p-6">
       <div className="max-w-5xl mx-auto">
         {valueItems.length === 0 ? (
           <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-8 text-center">

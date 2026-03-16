@@ -166,7 +166,7 @@ export default function ReviewClient({
   const allScored = totalKRs > 0 && scoredKRs === totalKRs;
 
   return (
-    <div className="min-h-screen bg-[#050505] p-6">
+    <div className="min-h-screen bg-[#050505] p-3 sm:p-6">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* ページヘッダー */}
         <div className="flex items-center justify-between">
@@ -195,7 +195,7 @@ export default function ReviewClient({
           <div className="text-xs text-[#737373] uppercase tracking-wider mb-2">
             OKRスコアリング基準
           </div>
-          <div className="grid grid-cols-4 gap-4 text-xs">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
             <div>
               <span className="text-[#3b82f6] font-bold">0.7 - 1.0</span>
               <span className="text-[#737373] ml-2">目標達成 / 超過達成</span>

@@ -296,7 +296,7 @@ export default function DivisionManager({
 
   // --- 描画 ---
   return (
-    <div className="min-h-screen bg-[#050505] p-6">
+    <div className="min-h-screen bg-[#050505] p-3 sm:p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* ページヘッダー */}
         <div className="flex items-center justify-between">
@@ -356,7 +356,7 @@ export default function DivisionManager({
         </div>
 
         {/* サマリー */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4">
             <div className="text-xs text-[#737373] uppercase tracking-wider mb-1">合計</div>
             <div className="text-2xl font-bold text-[#e5e5e5]">{initialDivisions.length}</div>

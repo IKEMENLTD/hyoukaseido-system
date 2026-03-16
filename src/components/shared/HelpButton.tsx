@@ -28,7 +28,7 @@ export default function HelpButton() {
     <>
       {/* パネル */}
       {isOpen && (
-        <div className="fixed bottom-20 right-6 z-50 w-80 max-h-[70vh] border border-[#1a1a1a] bg-[#0a0a0a] flex flex-col overflow-hidden">
+        <div className="fixed bottom-20 right-3 sm:right-6 z-50 w-[calc(100vw-24px)] sm:w-80 max-h-[70vh] border border-[#1a1a1a] bg-[#0a0a0a] flex flex-col overflow-hidden">
           {/* ヘッダー */}
           <div className="border-b border-[#1a1a1a] px-4 py-3 flex items-center justify-between shrink-0">
             <div>
@@ -86,7 +86,7 @@ export default function HelpButton() {
       <button
         type="button"
         onClick={toggle}
-        className={`fixed bottom-6 right-6 z-50 w-10 h-10 flex items-center justify-center border transition-colors ${
+        className={`fixed bottom-6 right-3 sm:right-6 z-50 w-10 h-10 flex items-center justify-center border transition-colors ${
           isOpen
             ? 'border-[#3b82f6] bg-[#3b82f6] text-white'
             : 'border-[#333333] bg-[#0a0a0a] text-[#737373] hover:border-[#3b82f6] hover:text-[#3b82f6]'

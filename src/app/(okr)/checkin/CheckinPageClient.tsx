@@ -94,7 +94,7 @@ export default function CheckinPageClient({
   const today = new Date().toISOString().split('T')[0];
 
   return (
-    <div className="min-h-screen bg-[#050505] p-6">
+    <div className="min-h-screen bg-[#050505] p-3 sm:p-6">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* ページヘッダー */}
         <div className="flex items-center justify-between">

@@ -20,7 +20,7 @@ export default async function SelfQualitativePage(props: SelfQualitativePageProp
   const member = await getCurrentMember();
   if (!member) {
     return (
-      <div className="min-h-screen bg-[#050505] p-6 flex items-center justify-center">
+      <div className="min-h-screen bg-[#050505] p-3 sm:p-6 flex items-center justify-center">
         <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-8 max-w-md text-center">
           <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">メンバー未登録</h2>
           <p className="text-sm text-[#737373]">
@@ -35,7 +35,7 @@ export default async function SelfQualitativePage(props: SelfQualitativePageProp
   const evaluation = await getOrCreateEvaluation(member.id, periodId);
   if (!evaluation) {
     return (
-      <div className="min-h-screen bg-[#050505] p-6 flex items-center justify-center">
+      <div className="min-h-screen bg-[#050505] p-3 sm:p-6 flex items-center justify-center">
         <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-8 max-w-md text-center">
           <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">評価データが見つかりません</h2>
           <p className="text-sm text-[#737373]">評価レコードの作成に失敗しました。</p>
@@ -104,7 +104,7 @@ export default async function SelfQualitativePage(props: SelfQualitativePageProp
   const isReadonly = evaluation.status !== 'draft';
 
   return (
-    <div className="min-h-screen bg-[#050505] p-6">
+    <div className="min-h-screen bg-[#050505] p-3 sm:p-6">
       <div className="max-w-5xl mx-auto">
         {behaviorItems.length === 0 ? (
           <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-8 text-center">

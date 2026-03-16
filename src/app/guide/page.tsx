@@ -478,7 +478,7 @@ export default async function GuidePage() {
   const userRole: 'admin' | 'manager' | 'all' = isAdmin ? 'admin' : isManager ? 'manager' : 'all';
 
   return (
-    <div className="min-h-screen bg-[#050505] p-6">
+    <div className="min-h-screen bg-[#050505] p-3 sm:p-6">
       <div className="max-w-4xl mx-auto space-y-8">
         {/* ヘッダー */}
         <div>

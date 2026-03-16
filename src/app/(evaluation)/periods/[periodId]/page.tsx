@@ -83,7 +83,7 @@ interface TeamMemberRow {
 
 function ErrorCard({ title, message }: { title: string; message: string }) {
   return (
-    <div className="min-h-screen bg-[#050505] p-6 flex items-center justify-center">
+    <div className="min-h-screen bg-[#050505] p-3 sm:p-6 flex items-center justify-center">
       <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-8 max-w-md text-center">
         <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">{title}</h2>
         <p className="text-sm text-[#737373]">{message}</p>
@@ -264,7 +264,7 @@ export default async function PeriodPage(props: PeriodPageProps) {
     .join(' / ');
 
   return (
-    <div className="min-h-screen bg-[#050505] p-6">
+    <div className="min-h-screen bg-[#050505] p-3 sm:p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* ページヘッダー */}
         <div className="flex items-center justify-between">
@@ -349,7 +349,7 @@ export default async function PeriodPage(props: PeriodPageProps) {
         </div>
 
         {/* 進捗サマリー */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4 text-center">
             <div className="text-xs text-[#737373] uppercase tracking-wider mb-1">
               対象メンバー
@@ -391,7 +391,7 @@ export default async function PeriodPage(props: PeriodPageProps) {
         </div>
 
         {/* 評価メニュー */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-2 sm:grid-cols-4 gap-4">
           <Link
             href={`/periods/${periodId}/quantitative`}
             className="border border-[#1a1a1a] bg-[#0a0a0a] p-4 hover:border-[#3b82f6] transition-colors block"

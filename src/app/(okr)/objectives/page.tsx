@@ -81,7 +81,7 @@ export default async function ObjectivesPage() {
   const member = await getCurrentMember();
   if (!member) {
     return (
-      <div className="min-h-screen bg-[#050505] p-6 flex items-center justify-center">
+      <div className="min-h-screen bg-[#050505] p-3 sm:p-6 flex items-center justify-center">
         <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-8 max-w-md text-center">
           <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">メンバー未登録</h2>
           <p className="text-sm text-[#737373]">ログインユーザーにメンバー情報が紐付けられていません。</p>
@@ -103,7 +103,7 @@ export default async function ObjectivesPage() {
 
   if (periodError || !okrPeriod) {
     return (
-      <div className="min-h-screen bg-[#050505] p-6 flex items-center justify-center">
+      <div className="min-h-screen bg-[#050505] p-3 sm:p-6 flex items-center justify-center">
         <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-8 max-w-md text-center">
           <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">アクティブなOKR期間がありません</h2>
           <p className="text-sm text-[#737373]">OKR期間が設定されていないか、現在有効な期間が見つかりません。</p>
@@ -140,7 +140,7 @@ export default async function ObjectivesPage() {
 
   if (objectives.length === 0) {
     return (
-      <div className="min-h-screen bg-[#050505] p-6">
+      <div className="min-h-screen bg-[#050505] p-3 sm:p-6">
         <div className="max-w-7xl mx-auto space-y-6">
           {/* ページヘッダー */}
           <div className="flex items-center justify-between">
@@ -180,7 +180,7 @@ export default async function ObjectivesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#050505] p-6">
+    <div className="min-h-screen bg-[#050505] p-3 sm:p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* ページヘッダー */}
         <div className="flex items-center justify-between">
@@ -214,7 +214,7 @@ export default async function ObjectivesPage() {
         <OKRTree objectives={objectives} />
 
         {/* サマリー情報 */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4">
             <div className="text-xs text-[#737373] uppercase tracking-wider mb-2">
               全社 Objectives

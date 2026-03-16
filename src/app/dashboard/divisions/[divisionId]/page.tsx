@@ -190,7 +190,7 @@ export default async function DivisionPage(props: DivisionPageProps) {
   const currentMember = await getCurrentMember();
   if (!currentMember) {
     return (
-      <div className="min-h-screen bg-[#050505] p-6 flex items-center justify-center">
+      <div className="min-h-screen bg-[#050505] p-3 sm:p-6 flex items-center justify-center">
         <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-8 max-w-md text-center">
           <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">アクセス権限がありません</h2>
           <p className="text-sm text-[#737373]">
@@ -204,7 +204,7 @@ export default async function DivisionPage(props: DivisionPageProps) {
   const allowedGrades: ReadonlyArray<string> = ['G3', 'G4', 'G5'];
   if (!allowedGrades.includes(currentMember.grade)) {
     return (
-      <div className="min-h-screen bg-[#050505] p-6 flex items-center justify-center">
+      <div className="min-h-screen bg-[#050505] p-3 sm:p-6 flex items-center justify-center">
         <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-8 max-w-md text-center">
           <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">アクセス権限がありません</h2>
           <p className="text-sm text-[#737373]">
@@ -219,7 +219,7 @@ export default async function DivisionPage(props: DivisionPageProps) {
 
   if (!division) {
     return (
-      <div className="min-h-screen bg-[#050505] p-6 flex items-center justify-center">
+      <div className="min-h-screen bg-[#050505] p-3 sm:p-6 flex items-center justify-center">
         <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-8 max-w-md text-center">
           <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">事業部が見つかりません</h2>
           <p className="text-sm text-[#737373]">
@@ -231,7 +231,7 @@ export default async function DivisionPage(props: DivisionPageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-[#050505] p-6">
+    <div className="min-h-screen bg-[#050505] p-3 sm:p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* ページヘッダー */}
         <div className="flex items-center justify-between">
@@ -258,7 +258,7 @@ export default async function DivisionPage(props: DivisionPageProps) {
               {kpiAchievement.overall}%
             </span>
           </div>
-          <div className="p-4 grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="p-4 grid grid-cols-2 lg:grid-cols-2 sm:grid-cols-4 gap-4">
             {kpiAchievement.items.map((item) => {
               const isAbove = item.achievement >= 100;
               return (

@@ -228,7 +228,7 @@ export default function FinancialsManager({
   const yearOptions = [currentYear - 1, currentYear, currentYear + 1];
 
   return (
-    <div className="min-h-screen bg-[#050505] p-6">
+    <div className="min-h-screen bg-[#050505] p-3 sm:p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* ヘッダー */}
         <div className="flex items-center justify-between">

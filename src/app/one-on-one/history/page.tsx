@@ -60,7 +60,7 @@ export default async function OneOnOneHistoryPage({ searchParams }: PageProps) {
   const member = await getCurrentMember();
   if (!member) {
     return (
-      <div className="min-h-screen bg-[#050505] p-6 flex items-center justify-center">
+      <div className="min-h-screen bg-[#050505] p-3 sm:p-6 flex items-center justify-center">
         <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-8 max-w-md text-center">
           <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">ログインが必要です</h2>
           <p className="text-sm text-[#737373]">この機能を利用するにはログインしてください。</p>
@@ -111,7 +111,7 @@ export default async function OneOnOneHistoryPage({ searchParams }: PageProps) {
   const hasNext = safePage < totalPages;
 
   return (
-    <div className="min-h-screen bg-[#050505] p-6">
+    <div className="min-h-screen bg-[#050505] p-3 sm:p-6">
       <div className="max-w-5xl mx-auto space-y-6">
         {/* ページヘッダー */}
         <div className="flex items-center justify-between">

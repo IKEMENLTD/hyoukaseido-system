@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import Link from "next/link";
+import Sidebar from "@/components/shared/Sidebar";
 import HelpButton from "@/components/shared/HelpButton";
 import "./globals.css";
 
@@ -67,43 +67,8 @@ export default function RootLayout({
             __html: `if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js')})}`,
           }}
         />
-        <div className="flex min-h-screen">
-          <nav className="w-60 shrink-0 border-r border-white/10 bg-[#050505] flex flex-col">
-            <div className="px-4 py-5 border-b border-white/10">
-              <h1 className="text-sm font-bold tracking-wide text-[#3b82f6]">
-                評価制度システム
-              </h1>
-              <p className="text-[10px] text-white/40 mt-0.5">v2.0</p>
-            </div>
-            <ul className="flex-1 py-2">
-              {navItems.map((item) => (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-white/70 hover:text-white hover:bg-white/5 transition-colors"
-                  >
-                    <svg
-                      className="w-4 h-4 shrink-0"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      strokeWidth={1.5}
-                    >
-                      <path
-                        strokeLinecap="square"
-                        strokeLinejoin="miter"
-                        d={item.icon}
-                      />
-                    </svg>
-                    {item.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-            <div className="px-4 py-3 border-t border-white/10 text-[10px] text-white/30">
-              イケメングループ
-            </div>
-          </nav>
+        <div className="flex min-h-screen flex-col lg:flex-row">
+          <Sidebar navItems={navItems} />
           <main className="flex-1 min-w-0">
             {children}
           </main>
