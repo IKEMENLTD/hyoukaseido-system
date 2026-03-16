@@ -234,7 +234,7 @@ export default function BonusClient({
 
           {showForm && (
             <div className="p-4 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* メンバー */}
                 <div>
                   <label className="block text-xs text-[#a3a3a3] mb-1">対象メンバー</label>

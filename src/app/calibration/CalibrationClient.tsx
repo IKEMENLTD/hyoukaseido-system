@@ -198,7 +198,7 @@ export default function CalibrationClient({ evalPeriodName, evaluations }: Calib
         </div>
 
         {/* 進捗 */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4">
             <div className="text-xs text-[#737373] uppercase tracking-wider mb-1">対象者数</div>
             <div className="text-2xl font-bold text-[#e5e5e5]">{totalMembers}</div>

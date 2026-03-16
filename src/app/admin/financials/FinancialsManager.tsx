@@ -311,7 +311,45 @@ export default function FinancialsManager({
               {selectedYear}年{selectedMonth}月 入力
             </h3>
           </div>
-          <div className="overflow-x-auto">
+
+          {/* モバイルカードビュー */}
+          <div className="sm:hidden p-3 space-y-3">
+            {divisions.map((div) => {
+              const mKey = cellKey(div.id, selectedYear, selectedMonth);
+              const mCell = cells[mKey] ?? { revenue: '', cost: '', operatingCost: '', note: '' };
+              const mRev = parseInt(mCell.revenue, 10) || 0;
+              const mCost = parseInt(mCell.cost, 10) || 0;
+              const mOpCost = parseInt(mCell.operatingCost, 10) || 0;
+              const mGross = mRev - mCost;
+              const mNet = mGross - mOpCost;
+              const mHasData = !!(mCell.revenue || mCell.cost || mCell.operatingCost);
+              return (
+                <div key={div.id} className="border border-[#1a1a1a] p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-[#e5e5e5] font-bold">{div.name}</span>
+                    <span className={`px-2 py-0.5 border text-[10px] font-bold ${
+                      div.phase === 'profitable' ? 'text-[#22d3ee] border-[#22d3ee]' : 'text-[#f59e0b] border-[#f59e0b]'
+                    }`}>{div.phase === 'profitable' ? '黒字' : '赤字'}</span>
+                  </div>
+                  <div className="space-y-2">
+                    <div><label className="text-[10px] text-[#737373]">売上</label><input type="number" value={mCell.revenue} onChange={(e) => updateCell(div.id, 'revenue', e.target.value)} placeholder="0" className="w-full bg-[#111111] border border-[#333333] text-[#e5e5e5] text-right px-2 py-1 text-xs focus:border-[#3b82f6] outline-none" /></div>
+                    <div><label className="text-[10px] text-[#737373]">原価</label><input type="number" value={mCell.cost} onChange={(e) => updateCell(div.id, 'cost', e.target.value)} placeholder="0" className="w-full bg-[#111111] border border-[#333333] text-[#e5e5e5] text-right px-2 py-1 text-xs focus:border-[#3b82f6] outline-none" /></div>
+                    <div><label className="text-[10px] text-[#737373]">販管費</label><input type="number" value={mCell.operatingCost} onChange={(e) => updateCell(div.id, 'operatingCost', e.target.value)} placeholder="0" className="w-full bg-[#111111] border border-[#333333] text-[#e5e5e5] text-right px-2 py-1 text-xs focus:border-[#3b82f6] outline-none" /></div>
+                  </div>
+                  {mHasData && (
+                    <div className="flex items-center justify-between text-xs pt-1 border-t border-[#111111]">
+                      <span className={mGross >= 0 ? 'text-[#22d3ee]' : 'text-[#ef4444]'}>粗利: {formatYen(mGross)}</span>
+                      <span className={mNet >= 0 ? 'text-[#22d3ee]' : 'text-[#ef4444]'}>営業利益: {formatYen(mNet)}</span>
+                    </div>
+                  )}
+                  <input type="text" value={mCell.note} onChange={(e) => updateCell(div.id, 'note', e.target.value)} placeholder="備考" className="w-full bg-[#111111] border border-[#333333] text-[#a3a3a3] px-2 py-1 text-xs focus:border-[#3b82f6] outline-none" />
+                </div>
+              );
+            })}
+          </div>
+
+          {/* デスクトップテーブルビュー */}
+          <div className="hidden sm:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[#1a1a1a] text-[#737373]">

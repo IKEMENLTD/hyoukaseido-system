@@ -343,7 +343,7 @@ export default function DivisionManager({
           <div className="text-xs text-[#737373] uppercase tracking-wider mb-2">
             フェーズ別評価ウェイト
           </div>
-          <div className="grid grid-cols-2 gap-4 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
             {(Object.entries(PHASE_CONFIG) as Array<[Phase, typeof PHASE_CONFIG[Phase]]>).map(([phase, config]) => (
               <div key={phase} className="flex items-center gap-2">
                 <span className={`px-2 py-0.5 border text-xs font-bold ${config.color}`}>
@@ -412,7 +412,7 @@ export default function DivisionManager({
                       <p className="text-xs text-[#a3a3a3]">{division.mission}</p>
                     </div>
                   )}
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <div className="text-[10px] text-[#737373] uppercase tracking-wider mb-1">メンバー数</div>
                       <div className="text-sm text-[#e5e5e5] font-bold">{division.memberCount}名</div>

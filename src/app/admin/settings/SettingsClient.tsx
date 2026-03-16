@@ -406,7 +406,7 @@ export default function SettingsClient({
           )}
         </div>
         <div className="p-4 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs text-[#737373] uppercase tracking-wider mb-2">
                 組織名

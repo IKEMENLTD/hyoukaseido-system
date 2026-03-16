@@ -356,7 +356,7 @@ export default function ImprovementPlanFormClient({
         </div>
 
         {/* 開始日 / 終了日 */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-[10px] text-[#737373] uppercase tracking-wider mb-1">
               開始日
@@ -407,7 +407,7 @@ export default function ImprovementPlanFormClient({
             {milestones.map((milestone, index) => (
               <div
                 key={index}
-                className="flex items-center gap-2 border border-[#1a1a1a] bg-[#080808] p-2"
+                className="flex flex-col sm:flex-row gap-2 border border-[#1a1a1a] bg-[#080808] p-2"
               >
                 <input
                   type="text"
@@ -416,19 +416,21 @@ export default function ImprovementPlanFormClient({
                   placeholder="タイトル"
                   className="flex-1 bg-[#111111] border border-[#333333] text-[#e5e5e5] px-3 py-1.5 text-sm focus:border-[#3b82f6] focus:outline-none"
                 />
-                <input
-                  type="date"
-                  value={milestone.dueDate}
-                  onChange={(e) => updateMilestone(index, 'dueDate', e.target.value)}
-                  className="bg-[#111111] border border-[#333333] text-[#e5e5e5] px-3 py-1.5 text-sm focus:border-[#3b82f6] focus:outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={() => removeMilestone(index)}
-                  className="px-2 py-1 text-xs text-[#ef4444] border border-[#333333] hover:border-[#ef4444] transition-colors"
-                >
-                  削除
-                </button>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="date"
+                    value={milestone.dueDate}
+                    onChange={(e) => updateMilestone(index, 'dueDate', e.target.value)}
+                    className="bg-[#111111] border border-[#333333] text-[#e5e5e5] px-3 py-1.5 text-sm focus:border-[#3b82f6] focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeMilestone(index)}
+                    className="px-2 py-1 text-xs text-[#ef4444] border border-[#333333] hover:border-[#ef4444] transition-colors shrink-0"
+                  >
+                    削除
+                  </button>
+                </div>
               </div>
             ))}
           </div>

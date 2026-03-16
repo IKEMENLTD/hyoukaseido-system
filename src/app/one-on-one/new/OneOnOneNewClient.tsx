@@ -293,7 +293,7 @@ export default function OneOnOneNewClient({
               <label className="block text-xs text-[#737373] uppercase tracking-wider mb-2">
                 ミーティング種別
               </label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {MEETING_TYPE_OPTIONS.map((option) => (
                   <label
                     key={option.value}

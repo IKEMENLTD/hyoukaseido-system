@@ -454,7 +454,7 @@ export default function KpiTemplateManager({
       <div className="border border-[#1a1a1a] bg-[#0a0a0a]">
         {/* ヘッダー */}
         <div className="border-b border-[#1a1a1a] px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <span className="text-sm font-bold text-[#e5e5e5]">{tpl.divisionName}</span>
             <span className="text-xs text-[#737373]">{tpl.role}</span>
             <span className={`px-2 py-0.5 border text-[10px] font-bold ${typeConfig.color}`}>
@@ -474,7 +474,7 @@ export default function KpiTemplateManager({
 
           {editingItems.map((item, idx) => (
             <div key={item.id} className="border border-[#1a1a1a] p-3 space-y-2">
-              {/* 行1: 名前 + ウェイト + 単位 + 削除 */}
+              {/* 行1: 番号+名前 */}
               <div className="flex items-center gap-2">
                 <span className="text-[10px] text-[#404040] w-5 shrink-0">
                   {idx + 1}
@@ -486,14 +486,20 @@ export default function KpiTemplateManager({
                   onChange={(e) => updateItem(idx, 'name', e.target.value)}
                   className={`${INPUT_NARROW_CLASS} flex-1`}
                 />
-                <input
-                  type="number"
-                  placeholder="WT%"
-                  value={item.weight}
-                  onChange={(e) => updateItem(idx, 'weight', Number(e.target.value) || 0)}
-                  className={`${INPUT_NARROW_CLASS} w-16 text-right`}
-                />
-                <span className="text-[10px] text-[#737373]">%</span>
+              </div>
+
+              {/* 行2: ウェイト + 単位 + 削除 */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    placeholder="WT%"
+                    value={item.weight}
+                    onChange={(e) => updateItem(idx, 'weight', Number(e.target.value) || 0)}
+                    className={`${INPUT_NARROW_CLASS} w-16 text-right`}
+                  />
+                  <span className="text-[10px] text-[#737373]">%</span>
+                </div>
                 <input
                   type="text"
                   placeholder="単位"
@@ -510,7 +516,7 @@ export default function KpiTemplateManager({
                 </button>
               </div>
 
-              {/* 行2: 説明文 */}
+              {/* 行3: 説明文 */}
               <input
                 type="text"
                 placeholder="説明文"
@@ -519,30 +525,32 @@ export default function KpiTemplateManager({
                 className={`${INPUT_NARROW_CLASS} w-full`}
               />
 
-              {/* 行3: S/A/B/C 閾値 */}
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] text-[#737373] w-10 shrink-0">閾値</span>
-                {(['S', 'A', 'B', 'C'] as const).map((rank) => {
-                  const fieldKey = `threshold${rank}` as
-                    | 'thresholdS'
-                    | 'thresholdA'
-                    | 'thresholdB'
-                    | 'thresholdC';
-                  return (
-                    <div key={rank} className="flex items-center gap-1">
-                      <span className="text-[10px] text-[#737373]">{rank}:</span>
-                      <input
-                        type="text"
-                        placeholder="---"
-                        value={item[fieldKey] ?? ''}
-                        onChange={(e) =>
-                          updateItem(idx, fieldKey, parseNumericInput(e.target.value))
-                        }
-                        className={`${INPUT_NARROW_CLASS} w-16 text-right`}
-                      />
-                    </div>
-                  );
-                })}
+              {/* 行4: S/A/B/C 閾値 (2x2グリッド) */}
+              <div>
+                <span className="text-[10px] text-[#737373] mb-1 block">閾値</span>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {(['S', 'A', 'B', 'C'] as const).map((rank) => {
+                    const fieldKey = `threshold${rank}` as
+                      | 'thresholdS'
+                      | 'thresholdA'
+                      | 'thresholdB'
+                      | 'thresholdC';
+                    return (
+                      <div key={rank} className="flex items-center gap-1">
+                        <span className="text-[10px] text-[#737373]">{rank}:</span>
+                        <input
+                          type="text"
+                          placeholder="---"
+                          value={item[fieldKey] ?? ''}
+                          onChange={(e) =>
+                            updateItem(idx, fieldKey, parseNumericInput(e.target.value))
+                          }
+                          className={`${INPUT_NARROW_CLASS} w-full text-right`}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           ))}
@@ -558,8 +566,8 @@ export default function KpiTemplateManager({
         </div>
 
         {/* フッター */}
-        <div className="border-t border-[#1a1a1a] px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="border-t border-[#1a1a1a] px-4 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-3 flex-wrap">
             <span className="text-[10px] text-[#404040]">
               {editingItems.length}項目 / ウェイト合計: {editingTotalWeight}%
             </span>
@@ -603,7 +611,7 @@ export default function KpiTemplateManager({
       <div key={template.id} className="border border-[#1a1a1a] bg-[#0a0a0a]">
         {/* ヘッダー */}
         <div className="border-b border-[#1a1a1a] px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <span className="text-sm font-bold text-[#e5e5e5]">{template.divisionName}</span>
             <span className="text-xs text-[#737373]">{template.role}</span>
             <span className={`px-2 py-0.5 border text-[10px] font-bold ${typeConfig.color}`}>
