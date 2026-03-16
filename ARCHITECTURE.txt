@@ -81,6 +81,7 @@ src/
     improvement-plans/                改善計画
     quarterly-bonus/                  四半期インセンティブ
     win-session/                      ウィンセッション
+    guide/                            使い方ガイド (28ステップ完全マニュアル)
     profile/                          プロフィール・通知設定
     api/notifications/send/           通知送信API
     auth/callback/                    OAuth callback
@@ -721,7 +722,19 @@ quantitative_score * weight% + qualitative_score * weight% + value_score * weigh
              : 評価作成時のフェーズ自動判定に使用 (get-or-create-evaluation.ts)
 
 ------------------------------------------------------------------------
-8-43. /api/notifications/send
+8-43. /guide
+------------------------------------------------------------------------
+ファイル     : app/guide/page.tsx
+             : app/guide/GuideFilter.tsx
+種別         : Server + Client Component
+機能         : 使い方ガイド (28ステップ完全マニュアル)
+             : 評価サイクル全体を時系列で解説 (初期セットアップ→目標設定→日常→レビュー→自己評価→上長評価→キャリブレーション→結果)
+             : ロール別フィルタ (自分のステップのみ表示トグル)
+             : 各ステップに「やること」「なぜ必要か」「次のステップ」+ 該当ページ直リンク
+             : 等級に応じてハイライト表示
+
+------------------------------------------------------------------------
+8-44. /api/notifications/send
 ------------------------------------------------------------------------
 ファイル     : app/api/notifications/send/route.ts
 種別         : API Route (POST)
