@@ -69,7 +69,7 @@ export default function Sidebar({ navItems }: SidebarProps) {
         className={`
           fixed top-0 left-0 h-full z-[60] w-60 bg-[#050505] border-r border-white/10 flex flex-col
           transition-transform duration-200 ease-out
-          lg:relative lg:translate-x-0 lg:shrink-0
+          lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 lg:shrink-0
           ${isOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
       >
