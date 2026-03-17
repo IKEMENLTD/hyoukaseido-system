@@ -77,17 +77,29 @@ export async function GET(request: Request) {
       // 満たせない（auth_user_idがまだnullのため）ので、RLSをバイパスする必要がある
       let isFirstLogin = false;
       if (user?.email && user.email_confirmed_at) {
-        const serviceClient = createServiceRoleClient();
-        const { data: linked } = await serviceClient
-          .from('members')
-          .update({ auth_user_id: user.id })
-          .eq('email', user.email)
-          .is('auth_user_id', null)
-          .select('id');
+        try {
+          const serviceClient = createServiceRoleClient();
+          // email照合はcase-insensitive（Google OAuthの返すemailと登録emailの大小文字差異対応）
+          // 同一emailの重複メンバー対策: activeのみ対象 + 1件だけ取得してIDで更新
+          const { data: candidate } = await serviceClient
+            .from('members')
+            .select('id')
+            .ilike('email', user.email)
+            .is('auth_user_id', null)
+            .eq('status', 'active')
+            .limit(1)
+            .single();
 
-        // リンクが成功した(=初回ログイン)場合はwelcomeフラグを立てる
-        if (linked && linked.length > 0) {
-          isFirstLogin = true;
+          if (candidate) {
+            await serviceClient
+              .from('members')
+              .update({ auth_user_id: user.id })
+              .eq('id', candidate.id);
+            isFirstLogin = true;
+          }
+        } catch (e) {
+          // メンバー紐付け失敗してもログイン自体は続行（500エラー防止）
+          console.error('Member linking failed:', e);
         }
       }
 
