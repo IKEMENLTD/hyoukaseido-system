@@ -193,9 +193,15 @@ export default async function DivisionPage(props: DivisionPageProps) {
       <div className="min-h-screen bg-[#050505] p-3 sm:p-6 flex items-center justify-center">
         <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4 sm:p-8 max-w-md text-center">
           <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">アクセス権限がありません</h2>
-          <p className="text-sm text-[#737373]">
+          <p className="text-sm text-[#737373] mb-4">
             ログインが必要です。
           </p>
+          <a
+            href="/login"
+            className="inline-block px-6 py-2 text-sm font-bold text-[#050505] bg-[#3b82f6] hover:bg-[#2563eb] transition-colors"
+          >
+            ログインページへ
+          </a>
         </div>
       </div>
     );

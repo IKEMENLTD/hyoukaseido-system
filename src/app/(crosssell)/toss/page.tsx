@@ -57,9 +57,15 @@ export default async function TossPage() {
           <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">
             ログインが必要です
           </h2>
-          <p className="text-sm text-[#737373]">
+          <p className="text-sm text-[#737373] mb-4">
             この機能を利用するにはログインしてください。
           </p>
+          <a
+            href="/login"
+            className="inline-block px-6 py-2 text-sm font-bold text-[#050505] bg-[#3b82f6] hover:bg-[#2563eb] transition-colors"
+          >
+            ログインページへ
+          </a>
         </div>
       </div>
     );

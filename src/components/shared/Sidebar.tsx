@@ -14,9 +14,13 @@ interface SidebarProps {
   navItems: NavItem[];
 }
 
+// サイドバーを非表示にするパス
+const AUTH_PATHS = ['/login'];
+
 export default function Sidebar({ navItems }: SidebarProps) {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
+  const isAuthPage = AUTH_PATHS.includes(pathname);
 
   // ページ遷移時にメニューを閉じる
   useEffect(() => {
@@ -34,6 +38,11 @@ export default function Sidebar({ navItems }: SidebarProps) {
       document.body.style.overflow = '';
     };
   }, [isOpen]);
+
+  // 認証ページではサイドバー・モバイルヘッダーを一切表示しない
+  if (isAuthPage) {
+    return null;
+  }
 
   return (
     <>
