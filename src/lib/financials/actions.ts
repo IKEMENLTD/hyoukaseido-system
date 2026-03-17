@@ -1,8 +1,8 @@
 'use server';
 
 // =============================================================================
-// 事業部別財務データ Server Actions
-// 月次の売上・原価・販管費を管理し、ROI算出・フェーズ判定に活用する
+// 財務データ Server Actions
+// 事業部別月次データ + 共通固定費を管理し、ROI算出・フェーズ判定に活用する
 // =============================================================================
 
 import { createClient } from '@/lib/supabase/server';
@@ -162,4 +162,116 @@ export async function getDivisionPhases(
       hasData: false,
     };
   });
+}
+
+// -----------------------------------------------------------------------------
+// 共通固定費の保存 (INSERT / UPDATE / DELETE)
+// -----------------------------------------------------------------------------
+
+interface SharedCostInput {
+  id?: string;
+  category: string;
+  label: string;
+  amount: number;
+  is_loan: boolean;
+  note?: string | null;
+}
+
+export async function saveSharedCosts(
+  fiscalYear: number,
+  month: number,
+  items: SharedCostInput[],
+  deletedIds: string[]
+): Promise<ActionResult> {
+  try {
+    const member = await getCurrentMember();
+    if (!member) return { success: false, error: '認証が必要です' };
+    if (!['G4', 'G5'].includes(member.grade)) {
+      return { success: false, error: '共通固定費の入力はG4以上のみ実行可能です' };
+    }
+
+    // バリデーション
+    if (fiscalYear < 2000 || fiscalYear > 2100) {
+      return { success: false, error: '年度が不正です' };
+    }
+    if (month < 1 || month > 12) {
+      return { success: false, error: '月が不正です' };
+    }
+
+    const MAX = 10_000_000_000; // 100億円上限 (入力ミス防止)
+    for (const item of items) {
+      if (item.amount < 0) {
+        return { success: false, error: '金額に負の値は入力できません' };
+      }
+      if (item.amount > MAX) {
+        return { success: false, error: '金額が上限を超えています' };
+      }
+      if (!item.label.trim()) {
+        return { success: false, error: 'ラベルは必須です' };
+      }
+    }
+
+    const supabase = await createClient();
+    const now = new Date().toISOString();
+
+    // 削除処理
+    if (deletedIds.length > 0) {
+      const { error: deleteError } = await supabase
+        .from('shared_costs')
+        .delete()
+        .in('id', deletedIds);
+
+      if (deleteError) {
+        console.error('shared_costs delete error:', deleteError.message);
+        return { success: false, error: '削除に失敗しました' };
+      }
+    }
+
+    // 更新・挿入処理
+    for (const item of items) {
+      if (item.id) {
+        // UPDATE
+        const { error: updateError } = await supabase
+          .from('shared_costs')
+          .update({
+            category: item.category,
+            label: item.label,
+            amount: item.amount,
+            is_loan: item.is_loan,
+            note: item.note || null,
+            updated_at: now,
+          })
+          .eq('id', item.id);
+
+        if (updateError) {
+          console.error('shared_costs update error:', updateError.message);
+          return { success: false, error: '更新に失敗しました' };
+        }
+      } else {
+        // INSERT
+        const { error: insertError } = await supabase
+          .from('shared_costs')
+          .insert({
+            org_id: member.org_id,
+            fiscal_year: fiscalYear,
+            month,
+            category: item.category,
+            label: item.label,
+            amount: item.amount,
+            is_loan: item.is_loan,
+            note: item.note || null,
+          });
+
+        if (insertError) {
+          console.error('shared_costs insert error:', insertError.message);
+          return { success: false, error: '登録に失敗しました' };
+        }
+      }
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error('saveSharedCosts unexpected error:', err);
+    return { success: false, error: '予期しないエラーが発生しました' };
+  }
 }

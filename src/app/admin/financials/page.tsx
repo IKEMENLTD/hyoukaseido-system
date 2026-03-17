@@ -26,6 +26,18 @@ interface FinancialRow {
   note: string | null;
 }
 
+interface SharedCostRow {
+  id: string;
+  org_id: string;
+  fiscal_year: number;
+  month: number;
+  category: string;
+  label: string;
+  amount: number;
+  is_loan: boolean;
+  note: string | null;
+}
+
 export default async function FinancialsPage() {
   const member = await getCurrentMember();
   if (!member || !['G4', 'G5'].includes(member.grade)) {
@@ -46,11 +58,16 @@ export default async function FinancialsPage() {
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth() + 1;
 
-  const [divisionsRes, financialsRes] = await Promise.all([
+  const [divisionsRes, financialsRes, sharedCostsRes] = await Promise.all([
     supabase.from('divisions').select('id, name, phase').order('name'),
     supabase
       .from('division_financials')
       .select('id, division_id, fiscal_year, month, revenue, cost, gross_profit, operating_cost, net_profit, note')
+      .gte('fiscal_year', currentYear - 1)
+      .order('fiscal_year', { ascending: false }),
+    supabase
+      .from('shared_costs')
+      .select('id, org_id, fiscal_year, month, category, label, amount, is_loan, note')
       .gte('fiscal_year', currentYear - 1)
       .order('fiscal_year', { ascending: false }),
   ]);
@@ -74,10 +91,22 @@ export default async function FinancialsPage() {
     note: f.note,
   }));
 
+  const sharedCosts = ((sharedCostsRes.data ?? []) as unknown as SharedCostRow[]).map((sc) => ({
+    id: sc.id,
+    category: sc.category,
+    label: sc.label,
+    amount: sc.amount,
+    isLoan: sc.is_loan,
+    fiscalYear: sc.fiscal_year,
+    month: sc.month,
+    note: sc.note,
+  }));
+
   return (
     <FinancialsManager
       divisions={divisions}
       existingData={financials}
+      existingSharedCosts={sharedCosts}
       currentYear={currentYear}
       currentMonth={currentMonth}
     />
