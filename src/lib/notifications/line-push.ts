@@ -29,7 +29,10 @@ export async function sendLinePush(
 
   try {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? '';
-    const urlSuffix = payload.url ? `\n\n${appUrl}${payload.url}` : '';
+    const resolvedUrl = payload.url
+      ? (payload.url.startsWith('http') ? payload.url : `${appUrl}${payload.url}`)
+      : '';
+    const urlSuffix = resolvedUrl ? `\n\n${resolvedUrl}` : '';
     const textContent = `${payload.title}\n\n${payload.message}${urlSuffix}`;
 
     const response = await fetch('https://api.line.me/v2/bot/message/push', {

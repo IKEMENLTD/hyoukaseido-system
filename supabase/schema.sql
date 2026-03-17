@@ -1368,6 +1368,7 @@ CREATE TABLE IF NOT EXISTS notification_preferences (
   member_id UUID NOT NULL REFERENCES members(id) UNIQUE,
   line_enabled BOOLEAN DEFAULT false,
   slack_enabled BOOLEAN DEFAULT true,
+  chatwork_enabled BOOLEAN DEFAULT false,
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 

@@ -46,13 +46,14 @@ export async function sendSlackDM(
     ];
 
     if (payload.url) {
+      const url = payload.url.startsWith('http') ? payload.url : `${appUrl}${payload.url}`;
       blocks.push({
         type: 'actions',
         elements: [
           {
             type: 'button',
             text: { type: 'plain_text', text: '詳細を見る' },
-            url: `${appUrl}${payload.url}`,
+            url,
           },
         ],
       });

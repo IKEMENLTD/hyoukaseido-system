@@ -35,13 +35,13 @@ export async function refreshChatworkToken(
   linkId: string,
   encryptedRefreshToken: string
 ): Promise<TokenRefreshResult> {
-  const clientId = process.env.CHATWORK_OAUTH_CLIENT_ID;
-  const clientSecret = process.env.CHATWORK_OAUTH_CLIENT_SECRET;
+  const clientId = process.env.CHATWORK_CLIENT_ID;
+  const clientSecret = process.env.CHATWORK_CLIENT_SECRET;
 
   if (!clientId || !clientSecret) {
     return {
       success: false,
-      error: 'CHATWORK_OAUTH_CLIENT_ID or CHATWORK_OAUTH_CLIENT_SECRET not configured',
+      error: 'CHATWORK_CLIENT_ID or CHATWORK_CLIENT_SECRET not configured',
     };
   }
 

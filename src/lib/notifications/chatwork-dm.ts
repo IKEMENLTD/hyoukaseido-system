@@ -136,7 +136,10 @@ export async function sendChatworkDM(
 
     // メッセージ送信
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? '';
-    const urlSuffix = payload.url ? `\n${appUrl}${payload.url}` : '';
+    const resolvedUrl = payload.url
+      ? (payload.url.startsWith('http') ? payload.url : `${appUrl}${payload.url}`)
+      : '';
+    const urlSuffix = resolvedUrl ? `\n${resolvedUrl}` : '';
     const body = `[info][title]${payload.title}[/title]${payload.message}${urlSuffix}[/info]`;
 
     const response = await fetch(
