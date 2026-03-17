@@ -29,19 +29,21 @@ export async function notifyEvalPeriodStart(
 /**
  * 自己評価提出時の通知
  * @param supabaseClient RLSバイパス用のservice roleクライアント（省略時はcookiesベース）
+ * @param targetMemberIds 個人DM通知対象（上長のmember_id等）
  */
 export async function notifyEvalSubmitted(
   orgId: string,
   memberName: string,
   periodName: string,
-  supabaseClient?: SupabaseClient
+  supabaseClient?: SupabaseClient,
+  targetMemberIds?: string[]
 ) {
   return sendNotification(orgId, {
     event: 'eval_submitted',
     title: '自己評価が提出されました',
     message: `${memberName}さんが${periodName}の自己評価を提出しました。上長評価をお願いします。`,
     url: `${BASE_URL}/periods`,
-  }, supabaseClient);
+  }, supabaseClient, targetMemberIds);
 }
 
 /**
@@ -64,19 +66,21 @@ export async function notifyEvalSubmissionReminder(
 /**
  * 上長評価依頼通知
  * @param supabaseClient RLSバイパス用のservice roleクライアント（省略時はcookiesベース）
+ * @param targetMemberIds 個人DM通知対象（上長のmember_id）
  */
 export async function notifyManagerEvalRequest(
   orgId: string,
   memberName: string,
   periodName: string,
-  supabaseClient?: SupabaseClient
+  supabaseClient?: SupabaseClient,
+  targetMemberIds?: string[]
 ) {
   return sendNotification(orgId, {
     event: 'manager_eval_request',
     title: '上長評価の依頼',
     message: `${memberName}さんの${periodName}上長評価をお願いします。`,
     url: `${BASE_URL}/periods`,
-  }, supabaseClient);
+  }, supabaseClient, targetMemberIds);
 }
 
 /**
@@ -116,18 +120,20 @@ export async function notifyCalibrationComplete(
 /**
  * フィードバック完了通知
  * @param supabaseClient RLSバイパス用のservice roleクライアント（省略時はcookiesベース）
+ * @param targetMemberIds 個人DM通知対象（フィードバック対象者のmember_id）
  */
 export async function notifyFeedbackReady(
   orgId: string,
   memberName: string,
-  supabaseClient?: SupabaseClient
+  supabaseClient?: SupabaseClient,
+  targetMemberIds?: string[]
 ) {
   return sendNotification(orgId, {
     event: 'feedback_ready',
     title: '評価フィードバックが完了しました',
     message: `${memberName}さんの評価フィードバックが完了しました。結果をご確認ください。`,
     url: `${BASE_URL}/results`,
-  }, supabaseClient);
+  }, supabaseClient, targetMemberIds);
 }
 
 /**
@@ -220,18 +226,20 @@ export async function notifyCrosssellContracted(
 /**
  * ボーナス確定通知
  * @param supabaseClient RLSバイパス用のservice roleクライアント（省略時はcookiesベース）
+ * @param targetMemberIds 個人DM通知対象（ボーナス対象者のmember_id配列）
  */
 export async function notifyBonusConfirmed(
   orgId: string,
   periodName: string,
-  supabaseClient?: SupabaseClient
+  supabaseClient?: SupabaseClient,
+  targetMemberIds?: string[]
 ) {
   return sendNotification(orgId, {
     event: 'bonus_confirmed',
     title: 'ボーナスが確定しました',
     message: `${periodName}のボーナスが確定しました。詳細をご確認ください。`,
     url: `${BASE_URL}/quarterly-bonus`,
-  }, supabaseClient);
+  }, supabaseClient, targetMemberIds);
 }
 
 /**

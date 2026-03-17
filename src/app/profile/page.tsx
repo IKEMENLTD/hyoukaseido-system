@@ -13,6 +13,12 @@ interface DivisionJoinRow {
   divisions: { name: string } | null;
 }
 
+interface OAuthLinkRow {
+  provider: 'slack' | 'line' | 'chatwork';
+  provider_display_name: string | null;
+  linked_at: string;
+}
+
 export default async function ProfilePage() {
   const member = await getCurrentMember();
   if (!member) {
@@ -28,7 +34,7 @@ export default async function ProfilePage() {
 
   const supabase = await createClient();
 
-  const [authResult, divResult, notifResult] = await Promise.all([
+  const [authResult, divResult, notifResult, oauthResult] = await Promise.all([
     supabase.auth.getUser(),
     supabase
       .from('division_members')
@@ -38,12 +44,23 @@ export default async function ProfilePage() {
       .single(),
     supabase
       .from('notification_preferences')
-      .select('line_enabled, slack_enabled')
+      .select('line_enabled, slack_enabled, chatwork_enabled')
       .eq('member_id', member.id)
       .maybeSingle(),
+    supabase
+      .from('oauth_account_links')
+      .select('provider, provider_display_name, linked_at')
+      .eq('member_id', member.id),
   ]);
 
   const divRow = divResult.data as unknown as DivisionJoinRow | null;
+  const oauthRows = (oauthResult.data ?? []) as OAuthLinkRow[];
+
+  const linkedAccounts = oauthRows.map((row) => ({
+    provider: row.provider,
+    providerDisplayName: row.provider_display_name,
+    linkedAt: row.linked_at,
+  }));
 
   const profile = {
     name: member.name,
@@ -59,7 +76,9 @@ export default async function ProfilePage() {
       notificationSettings={{
         lineEnabled: notifResult.data?.line_enabled ?? false,
         slackEnabled: notifResult.data?.slack_enabled ?? true,
+        chatworkEnabled: notifResult.data?.chatwork_enabled ?? false,
       }}
+      linkedAccounts={linkedAccounts}
     />
   );
 }

@@ -10,7 +10,9 @@ import type {
   NotificationChannel,
   NotificationChannelRow,
   NotificationResult,
+  PersonalNotificationResult,
 } from './types';
+import { sendPersonalNotificationToMembers } from './personal-send';
 
 /** 通知送信のタイムアウト (ms) */
 const SEND_TIMEOUT_MS = 10000;
@@ -110,18 +112,27 @@ async function sendToChannel(
   }
 }
 
+/** 通知送信メイン関数の戻り値（組織チャンネル + 個人DM） */
+export interface SendNotificationResults {
+  channelResults: NotificationResult[];
+  personalResults: PersonalNotificationResult[];
+}
+
 /**
  * 通知送信メイン関数
  * 指定イベントに登録されたアクティブな全チャンネルに送信
+ * targetMemberIdsが指定された場合は、個人DM通知も送信（fire-and-forget ではなく結果を返す）
  *
  * @param orgId 組織ID
  * @param payload 通知ペイロード
  * @param externalClient 外部から注入するSupabaseクライアント（Cronジョブ等でcookies不要な場合）
+ * @param targetMemberIds 個人通知の対象メンバーID（省略時は個人通知なし）
  */
 export async function sendNotification(
   orgId: string,
   payload: NotificationPayload,
-  externalClient?: SupabaseClient
+  externalClient?: SupabaseClient,
+  targetMemberIds?: string[]
 ): Promise<NotificationResult[]> {
   const supabase = externalClient ?? await createClient();
 
@@ -173,6 +184,19 @@ export async function sendNotification(
       .from('notification_channels')
       .update({ last_sent_at: new Date().toISOString() })
       .in('id', successIds);
+  }
+
+  // 個人DM通知: targetMemberIdsが指定された場合のみ送信
+  // fire-and-forget: 個人通知の失敗がメイン処理をブロックしない
+  if (targetMemberIds && targetMemberIds.length > 0) {
+    sendPersonalNotificationToMembers(targetMemberIds, payload, supabase).catch(
+      (err: unknown) => {
+        console.warn(
+          '個人DM通知の送信中にエラー:',
+          err instanceof Error ? err.message : err
+        );
+      }
+    );
   }
 
   return notificationResults;
