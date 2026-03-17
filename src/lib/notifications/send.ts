@@ -90,10 +90,24 @@ async function sendToChannel(
         : buildLinePayload(payload);
 
   try {
+    // ChatWorkはREST APIで認証ヘッダー + x-www-form-urlencoded が必要
+    const headers: Record<string, string> =
+      channel.type === 'chatwork'
+        ? {
+            'X-ChatWorkToken': process.env.CHATWORK_API_TOKEN ?? '',
+            'Content-Type': 'application/x-www-form-urlencoded',
+          }
+        : { 'Content-Type': 'application/json' };
+
+    const requestBody =
+      channel.type === 'chatwork'
+        ? new URLSearchParams({ body: (body as { body: string }).body }).toString()
+        : JSON.stringify(body);
+
     const response = await fetch(channel.webhookUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      headers,
+      body: requestBody,
       signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
     });
 
