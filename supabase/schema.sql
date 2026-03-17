@@ -6,14 +6,14 @@
 -- 組織・メンバー
 -- ============================================================
 
-CREATE TABLE organizations (
+CREATE TABLE IF NOT EXISTS organizations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,                        -- 'イケメングループ'
   fiscal_year_start INT DEFAULT 4,           -- 4月始まり
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE divisions (
+CREATE TABLE IF NOT EXISTS divisions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id UUID NOT NULL REFERENCES organizations(id),
   name TEXT NOT NULL,                        -- 'システム開発事業部'
@@ -23,7 +23,7 @@ CREATE TABLE divisions (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE members (
+CREATE TABLE IF NOT EXISTS members (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id UUID NOT NULL REFERENCES organizations(id),
   auth_user_id UUID REFERENCES auth.users(id),  -- Supabase Auth連携
@@ -37,7 +37,7 @@ CREATE TABLE members (
 );
 
 -- メンバー×事業部の多対多（ウェイト付き）
-CREATE TABLE division_members (
+CREATE TABLE IF NOT EXISTS division_members (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   member_id UUID REFERENCES members(id),
   division_id UUID REFERENCES divisions(id),
@@ -52,7 +52,7 @@ CREATE TABLE division_members (
 -- 等級・KPIテンプレート（可変レイヤーの定義）
 -- ============================================================
 
-CREATE TABLE grade_definitions (
+CREATE TABLE IF NOT EXISTS grade_definitions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id UUID REFERENCES organizations(id),
   grade TEXT NOT NULL,                       -- 'G1', 'G2', 'G3', 'G4', 'G5'
@@ -65,7 +65,7 @@ CREATE TABLE grade_definitions (
 );
 
 -- 事業部×職種ごとのKPIテンプレート
-CREATE TABLE kpi_templates (
+CREATE TABLE IF NOT EXISTS kpi_templates (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   division_id UUID REFERENCES divisions(id),
   role TEXT NOT NULL,                        -- 'sales', 'engineer', ...
@@ -76,7 +76,7 @@ CREATE TABLE kpi_templates (
   UNIQUE(division_id, role, eval_type, version)
 );
 
-CREATE TABLE kpi_items (
+CREATE TABLE IF NOT EXISTS kpi_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   template_id UUID REFERENCES kpi_templates(id),
   name TEXT NOT NULL,                        -- '受注売上'
@@ -91,7 +91,7 @@ CREATE TABLE kpi_items (
 );
 
 -- バリュー評価項目（全社共通）
-CREATE TABLE value_items (
+CREATE TABLE IF NOT EXISTS value_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id UUID REFERENCES organizations(id),
   name TEXT NOT NULL,                        -- 'Be Bold'
@@ -102,7 +102,7 @@ CREATE TABLE value_items (
 );
 
 -- 行動評価項目（事業部×職種別）
-CREATE TABLE behavior_items (
+CREATE TABLE IF NOT EXISTS behavior_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   template_id UUID REFERENCES kpi_templates(id),
   name TEXT NOT NULL,                        -- '提案の質'
@@ -115,7 +115,7 @@ CREATE TABLE behavior_items (
 -- OKRレイヤー（四半期サイクル）
 -- ============================================================
 
-CREATE TABLE okr_periods (
+CREATE TABLE IF NOT EXISTS okr_periods (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id UUID NOT NULL REFERENCES organizations(id),
   name TEXT NOT NULL,                        -- '2026 Q1'
@@ -128,7 +128,7 @@ CREATE TABLE okr_periods (
   UNIQUE(org_id, fiscal_year, quarter)
 );
 
-CREATE TABLE okr_objectives (
+CREATE TABLE IF NOT EXISTS okr_objectives (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   okr_period_id UUID REFERENCES okr_periods(id),
   member_id UUID REFERENCES members(id),
@@ -139,7 +139,7 @@ CREATE TABLE okr_objectives (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE okr_key_results (
+CREATE TABLE IF NOT EXISTS okr_key_results (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   objective_id UUID REFERENCES okr_objectives(id),
   title TEXT NOT NULL,                       -- KR本文
@@ -151,7 +151,7 @@ CREATE TABLE okr_key_results (
   sort_order INT DEFAULT 0
 );
 
-CREATE TABLE okr_checkins (
+CREATE TABLE IF NOT EXISTS okr_checkins (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   key_result_id UUID REFERENCES okr_key_results(id),
   member_id UUID REFERENCES members(id),
@@ -167,7 +167,7 @@ CREATE TABLE okr_checkins (
 -- 査定レイヤー（半期サイクル）
 -- ============================================================
 
-CREATE TABLE eval_periods (
+CREATE TABLE IF NOT EXISTS eval_periods (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id UUID NOT NULL REFERENCES organizations(id),
   name TEXT NOT NULL,                        -- '2026年 H1'
@@ -191,13 +191,13 @@ CREATE TABLE eval_periods (
 );
 
 -- 評価期間とOKR四半期の中間テーブル（半期に含まれるOKR四半期を関連付け）
-CREATE TABLE eval_period_okr_periods (
+CREATE TABLE IF NOT EXISTS eval_period_okr_periods (
   eval_period_id UUID NOT NULL REFERENCES eval_periods(id),
   okr_period_id UUID NOT NULL REFERENCES okr_periods(id),
   PRIMARY KEY (eval_period_id, okr_period_id)
 );
 
-CREATE TABLE evaluations (
+CREATE TABLE IF NOT EXISTS evaluations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   eval_period_id UUID REFERENCES eval_periods(id),
   member_id UUID REFERENCES members(id),
@@ -253,7 +253,7 @@ CREATE TABLE evaluations (
 );
 
 -- 定量KPIスコア（事業部×職種のKPI項目ごと）
-CREATE TABLE eval_kpi_scores (
+CREATE TABLE IF NOT EXISTS eval_kpi_scores (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   evaluation_id UUID REFERENCES evaluations(id),
   kpi_item_id UUID REFERENCES kpi_items(id),
@@ -273,7 +273,7 @@ CREATE TABLE eval_kpi_scores (
 
 -- 定性行動評価スコア
 -- 4段階評価: x=1, △=2, ○=3, ◎=4
-CREATE TABLE eval_behavior_scores (
+CREATE TABLE IF NOT EXISTS eval_behavior_scores (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   evaluation_id UUID REFERENCES evaluations(id),
   behavior_item_id UUID REFERENCES behavior_items(id),
@@ -286,7 +286,7 @@ CREATE TABLE eval_behavior_scores (
 );
 
 -- バリュー評価スコア
-CREATE TABLE eval_value_scores (
+CREATE TABLE IF NOT EXISTS eval_value_scores (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   evaluation_id UUID REFERENCES evaluations(id),
   value_item_id UUID REFERENCES value_items(id),
@@ -302,7 +302,7 @@ CREATE TABLE eval_value_scores (
 -- ============================================================
 
 -- クロスセル経路定義
-CREATE TABLE crosssell_routes (
+CREATE TABLE IF NOT EXISTS crosssell_routes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id UUID REFERENCES organizations(id),
   from_division_id UUID REFERENCES divisions(id),
@@ -315,7 +315,7 @@ CREATE TABLE crosssell_routes (
 );
 
 -- トスアップ実績
-CREATE TABLE crosssell_tosses (
+CREATE TABLE IF NOT EXISTS crosssell_tosses (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   route_id UUID REFERENCES crosssell_routes(id),
   tosser_id UUID REFERENCES members(id),       -- トスした人
@@ -340,7 +340,7 @@ CREATE TABLE crosssell_tosses (
 -- 1on1・面談記録
 -- ============================================================
 
-CREATE TABLE one_on_ones (
+CREATE TABLE IF NOT EXISTS one_on_ones (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   member_id UUID REFERENCES members(id),
   manager_id UUID REFERENCES members(id),
@@ -359,7 +359,7 @@ CREATE TABLE one_on_ones (
 -- 改善計画（C/D評価時の改善計画管理）
 -- ============================================================
 
-CREATE TABLE improvement_plans (
+CREATE TABLE IF NOT EXISTS improvement_plans (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   evaluation_id UUID NOT NULL REFERENCES evaluations(id),
   member_id UUID NOT NULL REFERENCES members(id),
@@ -378,7 +378,7 @@ CREATE TABLE improvement_plans (
 -- 四半期インセンティブ
 -- ============================================================
 
-CREATE TABLE quarterly_bonuses (
+CREATE TABLE IF NOT EXISTS quarterly_bonuses (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   okr_period_id UUID NOT NULL REFERENCES okr_periods(id),
   member_id UUID NOT NULL REFERENCES members(id),
@@ -395,7 +395,7 @@ CREATE TABLE quarterly_bonuses (
 -- ウィンセッション（週次）
 -- ============================================================
 
-CREATE TABLE win_sessions (
+CREATE TABLE IF NOT EXISTS win_sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id UUID NOT NULL REFERENCES organizations(id),
   session_date DATE NOT NULL,
@@ -403,7 +403,7 @@ CREATE TABLE win_sessions (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE win_session_entries (
+CREATE TABLE IF NOT EXISTS win_session_entries (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   session_id UUID NOT NULL REFERENCES win_sessions(id),
   member_id UUID NOT NULL REFERENCES members(id),
@@ -428,6 +428,7 @@ CREATE TABLE win_session_entries (
 -- === evaluations ===
 ALTER TABLE evaluations ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "eval_select" ON evaluations;
 CREATE POLICY "eval_select" ON evaluations
   FOR SELECT USING (
     member_id = (SELECT id FROM members WHERE auth_user_id = auth.uid())
@@ -447,6 +448,7 @@ CREATE POLICY "eval_select" ON evaluations
     )
   );
 
+DROP POLICY IF EXISTS "eval_insert" ON evaluations;
 CREATE POLICY "eval_insert" ON evaluations
   FOR INSERT WITH CHECK (
     -- 自己評価の作成（自分のevaluation）
@@ -458,6 +460,7 @@ CREATE POLICY "eval_insert" ON evaluations
     )
   );
 
+DROP POLICY IF EXISTS "eval_update" ON evaluations;
 CREATE POLICY "eval_update" ON evaluations
   FOR UPDATE USING (
     -- 本人（自己評価の更新: self_comment, status）
@@ -498,6 +501,7 @@ CREATE POLICY "eval_update" ON evaluations
     )
   );
 
+DROP POLICY IF EXISTS "eval_delete" ON evaluations;
 CREATE POLICY "eval_delete" ON evaluations
   FOR DELETE USING (
     -- 削除はG4/G5のみ（かつdraftステータスのみ想定）
@@ -511,6 +515,7 @@ CREATE POLICY "eval_delete" ON evaluations
 -- === eval_kpi_scores ===
 ALTER TABLE eval_kpi_scores ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "eval_kpi_scores_select" ON eval_kpi_scores;
 CREATE POLICY "eval_kpi_scores_select" ON eval_kpi_scores
   FOR SELECT USING (
     EXISTS (
@@ -531,6 +536,7 @@ CREATE POLICY "eval_kpi_scores_select" ON eval_kpi_scores
     )
   );
 
+DROP POLICY IF EXISTS "eval_kpi_scores_insert" ON eval_kpi_scores;
 CREATE POLICY "eval_kpi_scores_insert" ON eval_kpi_scores
   FOR INSERT WITH CHECK (
     EXISTS (
@@ -546,6 +552,7 @@ CREATE POLICY "eval_kpi_scores_insert" ON eval_kpi_scores
     )
   );
 
+DROP POLICY IF EXISTS "eval_kpi_scores_update" ON eval_kpi_scores;
 CREATE POLICY "eval_kpi_scores_update" ON eval_kpi_scores
   FOR UPDATE USING (
     EXISTS (
@@ -561,6 +568,7 @@ CREATE POLICY "eval_kpi_scores_update" ON eval_kpi_scores
     )
   );
 
+DROP POLICY IF EXISTS "eval_kpi_scores_delete" ON eval_kpi_scores;
 CREATE POLICY "eval_kpi_scores_delete" ON eval_kpi_scores
   FOR DELETE USING (
     EXISTS (
@@ -571,6 +579,7 @@ CREATE POLICY "eval_kpi_scores_delete" ON eval_kpi_scores
 -- === eval_behavior_scores ===
 ALTER TABLE eval_behavior_scores ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "eval_behavior_scores_select" ON eval_behavior_scores;
 CREATE POLICY "eval_behavior_scores_select" ON eval_behavior_scores
   FOR SELECT USING (
     EXISTS (
@@ -591,6 +600,7 @@ CREATE POLICY "eval_behavior_scores_select" ON eval_behavior_scores
     )
   );
 
+DROP POLICY IF EXISTS "eval_behavior_scores_insert" ON eval_behavior_scores;
 CREATE POLICY "eval_behavior_scores_insert" ON eval_behavior_scores
   FOR INSERT WITH CHECK (
     EXISTS (
@@ -606,6 +616,7 @@ CREATE POLICY "eval_behavior_scores_insert" ON eval_behavior_scores
     )
   );
 
+DROP POLICY IF EXISTS "eval_behavior_scores_update" ON eval_behavior_scores;
 CREATE POLICY "eval_behavior_scores_update" ON eval_behavior_scores
   FOR UPDATE USING (
     EXISTS (
@@ -621,6 +632,7 @@ CREATE POLICY "eval_behavior_scores_update" ON eval_behavior_scores
     )
   );
 
+DROP POLICY IF EXISTS "eval_behavior_scores_delete" ON eval_behavior_scores;
 CREATE POLICY "eval_behavior_scores_delete" ON eval_behavior_scores
   FOR DELETE USING (
     EXISTS (
@@ -631,6 +643,7 @@ CREATE POLICY "eval_behavior_scores_delete" ON eval_behavior_scores
 -- === eval_value_scores ===
 ALTER TABLE eval_value_scores ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "eval_value_scores_select" ON eval_value_scores;
 CREATE POLICY "eval_value_scores_select" ON eval_value_scores
   FOR SELECT USING (
     EXISTS (
@@ -651,6 +664,7 @@ CREATE POLICY "eval_value_scores_select" ON eval_value_scores
     )
   );
 
+DROP POLICY IF EXISTS "eval_value_scores_insert" ON eval_value_scores;
 CREATE POLICY "eval_value_scores_insert" ON eval_value_scores
   FOR INSERT WITH CHECK (
     EXISTS (
@@ -666,6 +680,7 @@ CREATE POLICY "eval_value_scores_insert" ON eval_value_scores
     )
   );
 
+DROP POLICY IF EXISTS "eval_value_scores_update" ON eval_value_scores;
 CREATE POLICY "eval_value_scores_update" ON eval_value_scores
   FOR UPDATE USING (
     EXISTS (
@@ -681,6 +696,7 @@ CREATE POLICY "eval_value_scores_update" ON eval_value_scores
     )
   );
 
+DROP POLICY IF EXISTS "eval_value_scores_delete" ON eval_value_scores;
 CREATE POLICY "eval_value_scores_delete" ON eval_value_scores
   FOR DELETE USING (
     EXISTS (
@@ -691,6 +707,7 @@ CREATE POLICY "eval_value_scores_delete" ON eval_value_scores
 -- === members ===
 ALTER TABLE members ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "members_select" ON members;
 CREATE POLICY "members_select" ON members
   FOR SELECT USING (
     -- 全員が基本情報を閲覧可（name, grade）
@@ -698,6 +715,7 @@ CREATE POLICY "members_select" ON members
     true
   );
 
+DROP POLICY IF EXISTS "members_update" ON members;
 CREATE POLICY "members_update" ON members
   FOR UPDATE USING (
     auth_user_id = auth.uid()
@@ -706,6 +724,7 @@ CREATE POLICY "members_update" ON members
     )
   );
 
+DROP POLICY IF EXISTS "members_insert" ON members;
 CREATE POLICY "members_insert" ON members
   FOR INSERT WITH CHECK (
     EXISTS (
@@ -713,6 +732,7 @@ CREATE POLICY "members_insert" ON members
     )
   );
 
+DROP POLICY IF EXISTS "members_delete" ON members;
 CREATE POLICY "members_delete" ON members
   FOR DELETE USING (
     EXISTS (
@@ -723,6 +743,7 @@ CREATE POLICY "members_delete" ON members
 -- === one_on_ones ===
 ALTER TABLE one_on_ones ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "one_on_ones_select" ON one_on_ones;
 CREATE POLICY "one_on_ones_select" ON one_on_ones
   FOR SELECT USING (
     member_id = (SELECT id FROM members WHERE auth_user_id = auth.uid())
@@ -732,6 +753,7 @@ CREATE POLICY "one_on_ones_select" ON one_on_ones
     )
   );
 
+DROP POLICY IF EXISTS "one_on_ones_insert" ON one_on_ones;
 CREATE POLICY "one_on_ones_insert" ON one_on_ones
   FOR INSERT WITH CHECK (
     -- G3以上（manager_idが自分）
@@ -741,6 +763,7 @@ CREATE POLICY "one_on_ones_insert" ON one_on_ones
     )
   );
 
+DROP POLICY IF EXISTS "one_on_ones_update" ON one_on_ones;
 CREATE POLICY "one_on_ones_update" ON one_on_ones
   FOR UPDATE USING (
     member_id = (SELECT id FROM members WHERE auth_user_id = auth.uid())
@@ -750,6 +773,7 @@ CREATE POLICY "one_on_ones_update" ON one_on_ones
     )
   );
 
+DROP POLICY IF EXISTS "one_on_ones_delete" ON one_on_ones;
 CREATE POLICY "one_on_ones_delete" ON one_on_ones
   FOR DELETE USING (
     member_id = (SELECT id FROM members WHERE auth_user_id = auth.uid())
@@ -762,6 +786,7 @@ CREATE POLICY "one_on_ones_delete" ON one_on_ones
 -- === crosssell_tosses ===
 ALTER TABLE crosssell_tosses ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "crosssell_tosses_select" ON crosssell_tosses;
 CREATE POLICY "crosssell_tosses_select" ON crosssell_tosses
   FOR SELECT USING (
     tosser_id = (SELECT id FROM members WHERE auth_user_id = auth.uid())
@@ -771,12 +796,14 @@ CREATE POLICY "crosssell_tosses_select" ON crosssell_tosses
     )
   );
 
+DROP POLICY IF EXISTS "crosssell_tosses_insert" ON crosssell_tosses;
 CREATE POLICY "crosssell_tosses_insert" ON crosssell_tosses
   FOR INSERT WITH CHECK (
     -- 全員（tosser_idが自分）
     tosser_id = (SELECT id FROM members WHERE auth_user_id = auth.uid())
   );
 
+DROP POLICY IF EXISTS "crosssell_tosses_update" ON crosssell_tosses;
 CREATE POLICY "crosssell_tosses_update" ON crosssell_tosses
   FOR UPDATE USING (
     tosser_id = (SELECT id FROM members WHERE auth_user_id = auth.uid())
@@ -786,6 +813,7 @@ CREATE POLICY "crosssell_tosses_update" ON crosssell_tosses
     )
   );
 
+DROP POLICY IF EXISTS "crosssell_tosses_delete" ON crosssell_tosses;
 CREATE POLICY "crosssell_tosses_delete" ON crosssell_tosses
   FOR DELETE USING (
     EXISTS (
@@ -797,7 +825,7 @@ CREATE POLICY "crosssell_tosses_delete" ON crosssell_tosses
 -- 通知チャンネル設定
 -- ============================================================
 
-CREATE TABLE notification_channels (
+CREATE TABLE IF NOT EXISTS notification_channels (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id UUID NOT NULL REFERENCES organizations(id),
   type TEXT NOT NULL CHECK (type IN ('slack', 'line', 'chatwork')),
@@ -811,6 +839,7 @@ CREATE TABLE notification_channels (
 
 ALTER TABLE notification_channels ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "notification_channels_select" ON notification_channels;
 CREATE POLICY "notification_channels_select" ON notification_channels
   FOR SELECT USING (
     EXISTS (
@@ -818,6 +847,7 @@ CREATE POLICY "notification_channels_select" ON notification_channels
     )
   );
 
+DROP POLICY IF EXISTS "notification_channels_insert" ON notification_channels;
 CREATE POLICY "notification_channels_insert" ON notification_channels
   FOR INSERT WITH CHECK (
     EXISTS (
@@ -825,6 +855,7 @@ CREATE POLICY "notification_channels_insert" ON notification_channels
     )
   );
 
+DROP POLICY IF EXISTS "notification_channels_update" ON notification_channels;
 CREATE POLICY "notification_channels_update" ON notification_channels
   FOR UPDATE USING (
     EXISTS (
@@ -832,6 +863,7 @@ CREATE POLICY "notification_channels_update" ON notification_channels
     )
   );
 
+DROP POLICY IF EXISTS "notification_channels_delete" ON notification_channels;
 CREATE POLICY "notification_channels_delete" ON notification_channels
   FOR DELETE USING (
     EXISTS (
@@ -845,9 +877,11 @@ CREATE POLICY "notification_channels_delete" ON notification_channels
 -- === divisions ===
 ALTER TABLE divisions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "divisions_select" ON divisions;
 CREATE POLICY "divisions_select" ON divisions
   FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "divisions_modify" ON divisions;
 CREATE POLICY "divisions_modify" ON divisions
   FOR ALL USING (
     EXISTS (
@@ -858,9 +892,11 @@ CREATE POLICY "divisions_modify" ON divisions
 -- === division_members ===
 ALTER TABLE division_members ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "division_members_select" ON division_members;
 CREATE POLICY "division_members_select" ON division_members
   FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "division_members_modify" ON division_members;
 CREATE POLICY "division_members_modify" ON division_members
   FOR ALL USING (
     EXISTS (
@@ -871,9 +907,11 @@ CREATE POLICY "division_members_modify" ON division_members
 -- === grade_definitions ===
 ALTER TABLE grade_definitions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "grade_definitions_select" ON grade_definitions;
 CREATE POLICY "grade_definitions_select" ON grade_definitions
   FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "grade_definitions_modify" ON grade_definitions;
 CREATE POLICY "grade_definitions_modify" ON grade_definitions
   FOR ALL USING (
     EXISTS (
@@ -884,9 +922,11 @@ CREATE POLICY "grade_definitions_modify" ON grade_definitions
 -- === kpi_templates ===
 ALTER TABLE kpi_templates ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "kpi_templates_select" ON kpi_templates;
 CREATE POLICY "kpi_templates_select" ON kpi_templates
   FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "kpi_templates_modify" ON kpi_templates;
 CREATE POLICY "kpi_templates_modify" ON kpi_templates
   FOR ALL USING (
     EXISTS (
@@ -897,9 +937,11 @@ CREATE POLICY "kpi_templates_modify" ON kpi_templates
 -- === kpi_items ===
 ALTER TABLE kpi_items ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "kpi_items_select" ON kpi_items;
 CREATE POLICY "kpi_items_select" ON kpi_items
   FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "kpi_items_modify" ON kpi_items;
 CREATE POLICY "kpi_items_modify" ON kpi_items
   FOR ALL USING (
     EXISTS (
@@ -910,9 +952,11 @@ CREATE POLICY "kpi_items_modify" ON kpi_items
 -- === value_items ===
 ALTER TABLE value_items ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "value_items_select" ON value_items;
 CREATE POLICY "value_items_select" ON value_items
   FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "value_items_modify" ON value_items;
 CREATE POLICY "value_items_modify" ON value_items
   FOR ALL USING (
     EXISTS (
@@ -923,9 +967,11 @@ CREATE POLICY "value_items_modify" ON value_items
 -- === behavior_items ===
 ALTER TABLE behavior_items ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "behavior_items_select" ON behavior_items;
 CREATE POLICY "behavior_items_select" ON behavior_items
   FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "behavior_items_modify" ON behavior_items;
 CREATE POLICY "behavior_items_modify" ON behavior_items
   FOR ALL USING (
     EXISTS (
@@ -936,9 +982,11 @@ CREATE POLICY "behavior_items_modify" ON behavior_items
 -- === okr_periods ===
 ALTER TABLE okr_periods ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "okr_periods_select" ON okr_periods;
 CREATE POLICY "okr_periods_select" ON okr_periods
   FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "okr_periods_modify" ON okr_periods;
 CREATE POLICY "okr_periods_modify" ON okr_periods
   FOR ALL USING (
     EXISTS (
@@ -949,6 +997,7 @@ CREATE POLICY "okr_periods_modify" ON okr_periods
 -- === okr_objectives ===
 ALTER TABLE okr_objectives ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "okr_objectives_select" ON okr_objectives;
 CREATE POLICY "okr_objectives_select" ON okr_objectives
   FOR SELECT USING (
     member_id = (SELECT id FROM members WHERE auth_user_id = auth.uid())
@@ -964,6 +1013,7 @@ CREATE POLICY "okr_objectives_select" ON okr_objectives
     )
   );
 
+DROP POLICY IF EXISTS "okr_objectives_insert" ON okr_objectives;
 CREATE POLICY "okr_objectives_insert" ON okr_objectives
   FOR INSERT WITH CHECK (
     member_id = (SELECT id FROM members WHERE auth_user_id = auth.uid())
@@ -972,6 +1022,7 @@ CREATE POLICY "okr_objectives_insert" ON okr_objectives
     )
   );
 
+DROP POLICY IF EXISTS "okr_objectives_update" ON okr_objectives;
 CREATE POLICY "okr_objectives_update" ON okr_objectives
   FOR UPDATE USING (
     member_id = (SELECT id FROM members WHERE auth_user_id = auth.uid())
@@ -980,6 +1031,7 @@ CREATE POLICY "okr_objectives_update" ON okr_objectives
     )
   );
 
+DROP POLICY IF EXISTS "okr_objectives_delete" ON okr_objectives;
 CREATE POLICY "okr_objectives_delete" ON okr_objectives
   FOR DELETE USING (
     EXISTS (
@@ -990,6 +1042,7 @@ CREATE POLICY "okr_objectives_delete" ON okr_objectives
 -- === okr_key_results ===
 ALTER TABLE okr_key_results ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "okr_key_results_select" ON okr_key_results;
 CREATE POLICY "okr_key_results_select" ON okr_key_results
   FOR SELECT USING (
     EXISTS (
@@ -1011,6 +1064,7 @@ CREATE POLICY "okr_key_results_select" ON okr_key_results
     )
   );
 
+DROP POLICY IF EXISTS "okr_key_results_insert" ON okr_key_results;
 CREATE POLICY "okr_key_results_insert" ON okr_key_results
   FOR INSERT WITH CHECK (
     EXISTS (
@@ -1025,6 +1079,7 @@ CREATE POLICY "okr_key_results_insert" ON okr_key_results
     )
   );
 
+DROP POLICY IF EXISTS "okr_key_results_update" ON okr_key_results;
 CREATE POLICY "okr_key_results_update" ON okr_key_results
   FOR UPDATE USING (
     EXISTS (
@@ -1039,6 +1094,7 @@ CREATE POLICY "okr_key_results_update" ON okr_key_results
     )
   );
 
+DROP POLICY IF EXISTS "okr_key_results_delete" ON okr_key_results;
 CREATE POLICY "okr_key_results_delete" ON okr_key_results
   FOR DELETE USING (
     EXISTS (
@@ -1049,6 +1105,7 @@ CREATE POLICY "okr_key_results_delete" ON okr_key_results
 -- === okr_checkins ===
 ALTER TABLE okr_checkins ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "okr_checkins_select" ON okr_checkins;
 CREATE POLICY "okr_checkins_select" ON okr_checkins
   FOR SELECT USING (
     member_id = (SELECT id FROM members WHERE auth_user_id = auth.uid())
@@ -1066,11 +1123,13 @@ CREATE POLICY "okr_checkins_select" ON okr_checkins
     )
   );
 
+DROP POLICY IF EXISTS "okr_checkins_insert" ON okr_checkins;
 CREATE POLICY "okr_checkins_insert" ON okr_checkins
   FOR INSERT WITH CHECK (
     member_id = (SELECT id FROM members WHERE auth_user_id = auth.uid())
   );
 
+DROP POLICY IF EXISTS "okr_checkins_update" ON okr_checkins;
 CREATE POLICY "okr_checkins_update" ON okr_checkins
   FOR UPDATE USING (
     member_id = (SELECT id FROM members WHERE auth_user_id = auth.uid())
@@ -1079,6 +1138,7 @@ CREATE POLICY "okr_checkins_update" ON okr_checkins
     )
   );
 
+DROP POLICY IF EXISTS "okr_checkins_delete" ON okr_checkins;
 CREATE POLICY "okr_checkins_delete" ON okr_checkins
   FOR DELETE USING (
     EXISTS (
@@ -1089,6 +1149,7 @@ CREATE POLICY "okr_checkins_delete" ON okr_checkins
 -- === improvement_plans ===
 ALTER TABLE improvement_plans ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "improvement_plans_select" ON improvement_plans;
 CREATE POLICY "improvement_plans_select" ON improvement_plans
   FOR SELECT USING (
     member_id = (SELECT id FROM members WHERE auth_user_id = auth.uid())
@@ -1098,6 +1159,7 @@ CREATE POLICY "improvement_plans_select" ON improvement_plans
     )
   );
 
+DROP POLICY IF EXISTS "improvement_plans_insert" ON improvement_plans;
 CREATE POLICY "improvement_plans_insert" ON improvement_plans
   FOR INSERT WITH CHECK (
     manager_id = (SELECT id FROM members WHERE auth_user_id = auth.uid())
@@ -1106,6 +1168,7 @@ CREATE POLICY "improvement_plans_insert" ON improvement_plans
     )
   );
 
+DROP POLICY IF EXISTS "improvement_plans_update" ON improvement_plans;
 CREATE POLICY "improvement_plans_update" ON improvement_plans
   FOR UPDATE USING (
     manager_id = (SELECT id FROM members WHERE auth_user_id = auth.uid())
@@ -1114,6 +1177,7 @@ CREATE POLICY "improvement_plans_update" ON improvement_plans
     )
   );
 
+DROP POLICY IF EXISTS "improvement_plans_delete" ON improvement_plans;
 CREATE POLICY "improvement_plans_delete" ON improvement_plans
   FOR DELETE USING (
     EXISTS (
@@ -1124,6 +1188,7 @@ CREATE POLICY "improvement_plans_delete" ON improvement_plans
 -- === quarterly_bonuses ===
 ALTER TABLE quarterly_bonuses ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "quarterly_bonuses_select" ON quarterly_bonuses;
 CREATE POLICY "quarterly_bonuses_select" ON quarterly_bonuses
   FOR SELECT USING (
     member_id = (SELECT id FROM members WHERE auth_user_id = auth.uid())
@@ -1132,6 +1197,7 @@ CREATE POLICY "quarterly_bonuses_select" ON quarterly_bonuses
     )
   );
 
+DROP POLICY IF EXISTS "quarterly_bonuses_insert" ON quarterly_bonuses;
 CREATE POLICY "quarterly_bonuses_insert" ON quarterly_bonuses
   FOR INSERT WITH CHECK (
     EXISTS (
@@ -1139,6 +1205,7 @@ CREATE POLICY "quarterly_bonuses_insert" ON quarterly_bonuses
     )
   );
 
+DROP POLICY IF EXISTS "quarterly_bonuses_update" ON quarterly_bonuses;
 CREATE POLICY "quarterly_bonuses_update" ON quarterly_bonuses
   FOR UPDATE USING (
     EXISTS (
@@ -1146,6 +1213,7 @@ CREATE POLICY "quarterly_bonuses_update" ON quarterly_bonuses
     )
   );
 
+DROP POLICY IF EXISTS "quarterly_bonuses_delete" ON quarterly_bonuses;
 CREATE POLICY "quarterly_bonuses_delete" ON quarterly_bonuses
   FOR DELETE USING (
     EXISTS (
@@ -1156,9 +1224,11 @@ CREATE POLICY "quarterly_bonuses_delete" ON quarterly_bonuses
 -- === win_sessions ===
 ALTER TABLE win_sessions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "win_sessions_select" ON win_sessions;
 CREATE POLICY "win_sessions_select" ON win_sessions
   FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "win_sessions_insert" ON win_sessions;
 CREATE POLICY "win_sessions_insert" ON win_sessions
   FOR INSERT WITH CHECK (
     EXISTS (
@@ -1166,6 +1236,7 @@ CREATE POLICY "win_sessions_insert" ON win_sessions
     )
   );
 
+DROP POLICY IF EXISTS "win_sessions_update" ON win_sessions;
 CREATE POLICY "win_sessions_update" ON win_sessions
   FOR UPDATE USING (
     facilitator_id = (SELECT id FROM members WHERE auth_user_id = auth.uid())
@@ -1174,6 +1245,7 @@ CREATE POLICY "win_sessions_update" ON win_sessions
     )
   );
 
+DROP POLICY IF EXISTS "win_sessions_delete" ON win_sessions;
 CREATE POLICY "win_sessions_delete" ON win_sessions
   FOR DELETE USING (
     EXISTS (
@@ -1184,14 +1256,17 @@ CREATE POLICY "win_sessions_delete" ON win_sessions
 -- === win_session_entries ===
 ALTER TABLE win_session_entries ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "win_session_entries_select" ON win_session_entries;
 CREATE POLICY "win_session_entries_select" ON win_session_entries
   FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "win_session_entries_insert" ON win_session_entries;
 CREATE POLICY "win_session_entries_insert" ON win_session_entries
   FOR INSERT WITH CHECK (
     member_id = (SELECT id FROM members WHERE auth_user_id = auth.uid())
   );
 
+DROP POLICY IF EXISTS "win_session_entries_update" ON win_session_entries;
 CREATE POLICY "win_session_entries_update" ON win_session_entries
   FOR UPDATE USING (
     member_id = (SELECT id FROM members WHERE auth_user_id = auth.uid())
@@ -1200,6 +1275,7 @@ CREATE POLICY "win_session_entries_update" ON win_session_entries
     )
   );
 
+DROP POLICY IF EXISTS "win_session_entries_delete" ON win_session_entries;
 CREATE POLICY "win_session_entries_delete" ON win_session_entries
   FOR DELETE USING (
     member_id = (SELECT id FROM members WHERE auth_user_id = auth.uid())
@@ -1211,9 +1287,11 @@ CREATE POLICY "win_session_entries_delete" ON win_session_entries
 -- === eval_periods ===
 ALTER TABLE eval_periods ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "eval_periods_select" ON eval_periods;
 CREATE POLICY "eval_periods_select" ON eval_periods
   FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "eval_periods_modify" ON eval_periods;
 CREATE POLICY "eval_periods_modify" ON eval_periods
   FOR ALL USING (
     EXISTS (
@@ -1224,9 +1302,11 @@ CREATE POLICY "eval_periods_modify" ON eval_periods
 -- === eval_period_okr_periods ===
 ALTER TABLE eval_period_okr_periods ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "eval_period_okr_periods_select" ON eval_period_okr_periods;
 CREATE POLICY "eval_period_okr_periods_select" ON eval_period_okr_periods
   FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "eval_period_okr_periods_modify" ON eval_period_okr_periods;
 CREATE POLICY "eval_period_okr_periods_modify" ON eval_period_okr_periods
   FOR ALL USING (
     EXISTS (
@@ -1237,9 +1317,11 @@ CREATE POLICY "eval_period_okr_periods_modify" ON eval_period_okr_periods
 -- === organizations ===
 ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "organizations_select" ON organizations;
 CREATE POLICY "organizations_select" ON organizations
   FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "organizations_modify" ON organizations;
 CREATE POLICY "organizations_modify" ON organizations
   FOR ALL USING (
     EXISTS (
@@ -1250,9 +1332,11 @@ CREATE POLICY "organizations_modify" ON organizations
 -- === crosssell_routes ===
 ALTER TABLE crosssell_routes ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "crosssell_routes_select" ON crosssell_routes;
 CREATE POLICY "crosssell_routes_select" ON crosssell_routes
   FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "crosssell_routes_modify" ON crosssell_routes;
 CREATE POLICY "crosssell_routes_modify" ON crosssell_routes
   FOR ALL USING (
     EXISTS (
@@ -1260,26 +1344,26 @@ CREATE POLICY "crosssell_routes_modify" ON crosssell_routes
     )
   );
 
-CREATE INDEX idx_evaluations_period ON evaluations(eval_period_id);
-CREATE INDEX idx_evaluations_member ON evaluations(member_id);
-CREATE INDEX idx_evaluations_division ON evaluations(division_id);
-CREATE INDEX idx_eval_kpi_scores_eval ON eval_kpi_scores(evaluation_id);
-CREATE INDEX idx_eval_behavior_scores_eval ON eval_behavior_scores(evaluation_id);
-CREATE INDEX idx_eval_value_scores_eval ON eval_value_scores(evaluation_id);
-CREATE INDEX idx_division_members_member ON division_members(member_id);
-CREATE INDEX idx_division_members_division ON division_members(division_id);
-CREATE INDEX idx_okr_checkins_kr_date ON okr_checkins(key_result_id, checkin_date);
-CREATE INDEX idx_okr_key_results_obj ON okr_key_results(objective_id);
-CREATE INDEX idx_crosssell_tosses_route ON crosssell_tosses(route_id);
-CREATE INDEX idx_crosssell_tosses_tosser ON crosssell_tosses(tosser_id);
-CREATE INDEX idx_one_on_ones_member ON one_on_ones(member_id, meeting_date);
-CREATE INDEX idx_improvement_plans_member ON improvement_plans(member_id);
+CREATE INDEX IF NOT EXISTS idx_evaluations_period ON evaluations(eval_period_id);
+CREATE INDEX IF NOT EXISTS idx_evaluations_member ON evaluations(member_id);
+CREATE INDEX IF NOT EXISTS idx_evaluations_division ON evaluations(division_id);
+CREATE INDEX IF NOT EXISTS idx_eval_kpi_scores_eval ON eval_kpi_scores(evaluation_id);
+CREATE INDEX IF NOT EXISTS idx_eval_behavior_scores_eval ON eval_behavior_scores(evaluation_id);
+CREATE INDEX IF NOT EXISTS idx_eval_value_scores_eval ON eval_value_scores(evaluation_id);
+CREATE INDEX IF NOT EXISTS idx_division_members_member ON division_members(member_id);
+CREATE INDEX IF NOT EXISTS idx_division_members_division ON division_members(division_id);
+CREATE INDEX IF NOT EXISTS idx_okr_checkins_kr_date ON okr_checkins(key_result_id, checkin_date);
+CREATE INDEX IF NOT EXISTS idx_okr_key_results_obj ON okr_key_results(objective_id);
+CREATE INDEX IF NOT EXISTS idx_crosssell_tosses_route ON crosssell_tosses(route_id);
+CREATE INDEX IF NOT EXISTS idx_crosssell_tosses_tosser ON crosssell_tosses(tosser_id);
+CREATE INDEX IF NOT EXISTS idx_one_on_ones_member ON one_on_ones(member_id, meeting_date);
+CREATE INDEX IF NOT EXISTS idx_improvement_plans_member ON improvement_plans(member_id);
 
 -- ============================================================
 -- 通知プリファレンス（個人設定）
 -- ============================================================
 
-CREATE TABLE notification_preferences (
+CREATE TABLE IF NOT EXISTS notification_preferences (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   member_id UUID NOT NULL REFERENCES members(id) UNIQUE,
   line_enabled BOOLEAN DEFAULT false,
@@ -1290,16 +1374,19 @@ CREATE TABLE notification_preferences (
 -- === notification_preferences RLS ===
 ALTER TABLE notification_preferences ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "notif_pref_select" ON notification_preferences;
 CREATE POLICY "notif_pref_select" ON notification_preferences
   FOR SELECT USING (
     member_id = (SELECT id FROM members WHERE auth_user_id = auth.uid())
   );
 
+DROP POLICY IF EXISTS "notif_pref_insert" ON notification_preferences;
 CREATE POLICY "notif_pref_insert" ON notification_preferences
   FOR INSERT WITH CHECK (
     member_id = (SELECT id FROM members WHERE auth_user_id = auth.uid())
   );
 
+DROP POLICY IF EXISTS "notif_pref_update" ON notification_preferences;
 CREATE POLICY "notif_pref_update" ON notification_preferences
   FOR UPDATE USING (
     member_id = (SELECT id FROM members WHERE auth_user_id = auth.uid())
@@ -1309,7 +1396,7 @@ CREATE POLICY "notif_pref_update" ON notification_preferences
 -- ランク閾値（組織別カスタム設定）
 -- ============================================================
 
-CREATE TABLE rank_thresholds (
+CREATE TABLE IF NOT EXISTS rank_thresholds (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id UUID NOT NULL REFERENCES organizations(id),
   rank TEXT NOT NULL CHECK (rank IN ('S', 'A', 'B', 'C', 'D')),
@@ -1320,9 +1407,11 @@ CREATE TABLE rank_thresholds (
 
 ALTER TABLE rank_thresholds ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "rank_thresholds_select" ON rank_thresholds;
 CREATE POLICY "rank_thresholds_select" ON rank_thresholds
   FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "rank_thresholds_modify" ON rank_thresholds;
 CREATE POLICY "rank_thresholds_modify" ON rank_thresholds
   FOR ALL USING (
     EXISTS (
@@ -1335,7 +1424,7 @@ CREATE POLICY "rank_thresholds_modify" ON rank_thresholds
 -- 評価のROI算出・事業部フェーズ判定に使用
 -- ============================================================
 
-CREATE TABLE division_financials (
+CREATE TABLE IF NOT EXISTS division_financials (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   division_id UUID NOT NULL REFERENCES divisions(id),
   fiscal_year INT NOT NULL,
@@ -1355,6 +1444,7 @@ CREATE TABLE division_financials (
 
 ALTER TABLE division_financials ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "division_financials_select" ON division_financials;
 CREATE POLICY "division_financials_select" ON division_financials
   FOR SELECT USING (
     EXISTS (
@@ -1362,6 +1452,7 @@ CREATE POLICY "division_financials_select" ON division_financials
     )
   );
 
+DROP POLICY IF EXISTS "division_financials_modify" ON division_financials;
 CREATE POLICY "division_financials_modify" ON division_financials
   FOR ALL USING (
     EXISTS (
@@ -1369,13 +1460,13 @@ CREATE POLICY "division_financials_modify" ON division_financials
     )
   );
 
-CREATE INDEX idx_division_financials_lookup ON division_financials(division_id, fiscal_year, month);
+CREATE INDEX IF NOT EXISTS idx_division_financials_lookup ON division_financials(division_id, fiscal_year, month);
 
 -- ============================================================
 -- OAuthアカウント連携 (Slack / LINE / ChatWork)
 -- ============================================================
 
-CREATE TABLE oauth_account_links (
+CREATE TABLE IF NOT EXISTS oauth_account_links (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   member_id UUID NOT NULL REFERENCES members(id) ON DELETE CASCADE,
   provider TEXT NOT NULL CHECK (provider IN ('slack', 'line', 'chatwork')),
@@ -1394,11 +1485,13 @@ CREATE TABLE oauth_account_links (
 -- === oauth_account_links RLS ===
 ALTER TABLE oauth_account_links ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "oauth_links_select" ON oauth_account_links;
 CREATE POLICY "oauth_links_select" ON oauth_account_links
   FOR SELECT USING (
     member_id = (SELECT id FROM members WHERE auth_user_id = auth.uid())
   );
 
+DROP POLICY IF EXISTS "oauth_links_delete" ON oauth_account_links;
 CREATE POLICY "oauth_links_delete" ON oauth_account_links
   FOR DELETE USING (
     member_id = (SELECT id FROM members WHERE auth_user_id = auth.uid())
@@ -1413,7 +1506,7 @@ ALTER TABLE notification_preferences
 -- 家賃・人件費・交際費・コンサル費・借入返済・利息・その他を月次管理
 -- ============================================================
 
-CREATE TABLE shared_costs (
+CREATE TABLE IF NOT EXISTS shared_costs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id UUID NOT NULL REFERENCES organizations(id),
   fiscal_year INT NOT NULL,
@@ -1432,14 +1525,16 @@ CREATE TABLE shared_costs (
 
 ALTER TABLE shared_costs ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "shared_costs_select" ON shared_costs;
 CREATE POLICY "shared_costs_select" ON shared_costs
   FOR SELECT USING (
     EXISTS (SELECT 1 FROM members WHERE auth_user_id = auth.uid() AND grade IN ('G3','G4','G5'))
   );
 
+DROP POLICY IF EXISTS "shared_costs_modify" ON shared_costs;
 CREATE POLICY "shared_costs_modify" ON shared_costs
   FOR ALL USING (
     EXISTS (SELECT 1 FROM members WHERE auth_user_id = auth.uid() AND grade IN ('G4','G5'))
   );
 
-CREATE INDEX idx_shared_costs_lookup ON shared_costs(org_id, fiscal_year, month);
+CREATE INDEX IF NOT EXISTS idx_shared_costs_lookup ON shared_costs(org_id, fiscal_year, month);
