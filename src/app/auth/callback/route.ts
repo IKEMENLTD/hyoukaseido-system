@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { createServiceRoleClient } from '@/lib/supabase/service-role';
 
 /** リダイレクト先として許可するパスのプレフィックス */
 const ALLOWED_REDIRECT_PREFIXES = [
@@ -72,9 +73,12 @@ export async function GET(request: Request) {
       const { data: { user } } = await supabase.auth.getUser();
 
       // メールアドレスで未紐づけメンバーを自動リンク（メール検証済みの場合のみ）
+      // service roleクライアントを使用: 初回ログイン時はRLSのmembers_updateポリシーを
+      // 満たせない（auth_user_idがまだnullのため）ので、RLSをバイパスする必要がある
       let isFirstLogin = false;
       if (user?.email && user.email_confirmed_at) {
-        const { data: linked } = await supabase
+        const serviceClient = createServiceRoleClient();
+        const { data: linked } = await serviceClient
           .from('members')
           .update({ auth_user_id: user.id })
           .eq('email', user.email)
