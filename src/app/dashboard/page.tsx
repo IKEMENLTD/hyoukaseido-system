@@ -6,7 +6,7 @@
 
 import type { Rank, Phase, EvalPeriodStatus } from '@/types/evaluation';
 import { createClient } from '@/lib/supabase/server';
-import { getCurrentMember } from '@/lib/auth/get-member';
+import { getMemberResult } from '@/lib/auth/get-member';
 import CompanyOverview from '@/components/dashboard/CompanyOverview';
 import DivisionComparison from '@/components/dashboard/DivisionComparison';
 import CrossSellMap from '@/components/dashboard/CrossSellMap';
@@ -106,14 +106,15 @@ function buildDivisionName(id: string, divisions: DivisionRow[]): string {
 
 export default async function DashboardPage() {
   // -- 認証・認可チェック: G4/G5のみアクセス可 --
-  const currentMember = await getCurrentMember();
-  if (!currentMember) {
+  const result = await getMemberResult();
+
+  if (result.status === 'unauthenticated') {
     return (
       <div className="min-h-screen bg-[#050505] p-3 sm:p-6 flex items-center justify-center">
         <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4 sm:p-8 max-w-md text-center">
-          <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">アクセス権限がありません</h2>
+          <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">ログインが必要です</h2>
           <p className="text-sm text-[#737373] mb-4">
-            ログインが必要です。
+            Googleアカウントでログインしてください。
           </p>
           <a
             href="/login"
@@ -126,6 +127,30 @@ export default async function DashboardPage() {
     );
   }
 
+  if (result.status === 'unlinked') {
+    return (
+      <div className="min-h-screen bg-[#050505] p-3 sm:p-6 flex items-center justify-center">
+        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4 sm:p-8 max-w-md text-center">
+          <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">アカウントが未登録です</h2>
+          <p className="text-sm text-[#737373] mb-2">
+            ログイン中: <span className="text-[#a3a3a3]">{result.user.email}</span>
+          </p>
+          <p className="text-sm text-[#737373] mb-4">
+            このメールアドレスがシステムに登録されていません。管理者にメールアドレスの登録を依頼するか、登録済みの別アカウントでログインしてください。
+          </p>
+          <a
+            href="/login"
+            className="inline-block px-6 py-2 text-sm font-bold text-[#050505] bg-[#3b82f6] hover:bg-[#2563eb] transition-colors"
+          >
+            別のアカウントでログイン
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  const currentMember = result.member;
+
   const allowedGrades: ReadonlyArray<string> = ['G4', 'G5'];
   if (!allowedGrades.includes(currentMember.grade)) {
     return (
@@ -133,7 +158,7 @@ export default async function DashboardPage() {
         <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4 sm:p-8 max-w-md text-center">
           <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">アクセス権限がありません</h2>
           <p className="text-sm text-[#737373]">
-            適切な権限がありません。
+            このページの閲覧にはG4以上の権限が必要です。
           </p>
         </div>
       </div>

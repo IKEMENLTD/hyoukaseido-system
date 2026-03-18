@@ -1,5 +1,6 @@
 // =============================================================================
 // 認証ヘルパー: ログインユーザーに紐づくメンバー情報を取得
+// callbackで紐付け失敗した場合も auto_link_member RPC で自己修復する
 // =============================================================================
 
 import { createClient } from '@/lib/supabase/server';
@@ -14,24 +15,55 @@ export interface CurrentMember {
   division_ids: string[];
 }
 
+/** 認証済みだがメンバー未紐付けの状態を表す */
+export interface UnlinkedUser {
+  email: string;
+}
+
+export type GetMemberResult =
+  | { status: 'ok'; member: CurrentMember }
+  | { status: 'unlinked'; user: UnlinkedUser }
+  | { status: 'unauthenticated' };
+
 /**
  * 現在ログイン中のユーザーに紐づくメンバー情報を取得する。
  * - auth.users -> members テーブルを auth_user_id で結合
- * - 未ログインまたはメンバー未登録の場合は null を返す
+ * - 紐付けされていない場合は auto_link_member RPC で自動リンクを試行
+ * - 状態を明示的に返すことで、呼び出し側が適切なUIを出し分けられる
  */
-export async function getCurrentMember(): Promise<CurrentMember | null> {
+export async function getMemberResult(): Promise<GetMemberResult> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) return null;
+  if (!user) return { status: 'unauthenticated' };
 
-  const { data: member } = await supabase
+  let { data: member } = await supabase
     .from('members')
     .select('id, name, grade, monthly_salary, org_id')
     .eq('auth_user_id', user.id)
     .single();
 
-  if (!member) return null;
+  // 紐付けされていない場合、メールアドレスで自動リンクを試行
+  if (!member && user.email) {
+    const { data: linkedId } = await supabase
+      .rpc('auto_link_member', {
+        p_auth_uid: user.id,
+        p_email: user.email,
+      });
+
+    if (linkedId) {
+      const { data: linked } = await supabase
+        .from('members')
+        .select('id, name, grade, monthly_salary, org_id')
+        .eq('auth_user_id', user.id)
+        .single();
+      member = linked;
+    }
+  }
+
+  if (!member) {
+    return { status: 'unlinked', user: { email: user.email ?? '不明' } };
+  }
 
   // 所属事業部IDリストを取得
   const { data: divMemberships } = await supabase
@@ -40,13 +72,25 @@ export async function getCurrentMember(): Promise<CurrentMember | null> {
     .eq('member_id', member.id as string);
 
   return {
-    id: member.id as string,
-    name: member.name as string,
-    grade: member.grade as Grade,
-    monthly_salary: member.monthly_salary as number,
-    org_id: member.org_id as string,
-    division_ids: divMemberships
-      ? (divMemberships as Array<{ division_id: string }>).map((d) => d.division_id)
-      : [],
+    status: 'ok',
+    member: {
+      id: member.id as string,
+      name: member.name as string,
+      grade: member.grade as Grade,
+      monthly_salary: member.monthly_salary as number,
+      org_id: member.org_id as string,
+      division_ids: divMemberships
+        ? (divMemberships as Array<{ division_id: string }>).map((d) => d.division_id)
+        : [],
+    },
   };
+}
+
+/**
+ * 後方互換: 既存の呼び出し箇所で使用
+ * 紐付け失敗時は null を返す（従来と同じ振る舞い + 自動リンク試行付き）
+ */
+export async function getCurrentMember(): Promise<CurrentMember | null> {
+  const result = await getMemberResult();
+  return result.status === 'ok' ? result.member : null;
 }
