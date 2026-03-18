@@ -18,7 +18,6 @@ interface NotificationChannel {
   type: 'slack' | 'line' | 'chatwork';
   channelName: string;
   webhookUrl: string;
-  hasApiToken: boolean;
   isActive: boolean;
   events: string[];
   lastSentAt: string | null;
@@ -74,7 +73,7 @@ const URL_FIELD_LABELS: Record<ChannelType, string> = {
 
 const URL_FIELD_PLACEHOLDERS: Record<ChannelType, string> = {
   slack: 'https://hooks.slack.com/services/...',
-  line: 'https://api.line.me/v2/bot/message/...',
+  line: 'https://api.line.me/v2/bot/message/push',
   chatwork: 'https://api.chatwork.com/v2/rooms/{ルームID}/messages',
 };
 
@@ -801,14 +800,14 @@ export default function NotificationChannelManager({
                     </div>
                   </div>
 
-                  {/* APIトークン状態 (ChatWork / LINE のみ) */}
+                  {/* APIトークン案内 (ChatWork / LINE のみ) */}
                   {(channel.type === 'chatwork' || channel.type === 'line') && (
                     <div>
                       <div className="text-[10px] text-[#737373] uppercase tracking-wider mb-1">
                         {API_TOKEN_LABELS[channel.type]}
                       </div>
-                      <div className={`text-xs font-medium ${channel.hasApiToken ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>
-                        {channel.hasApiToken ? '設定済み' : '未設定 - 編集から設定してください'}
+                      <div className="text-xs text-[#737373]">
+                        テスト送信で接続を確認できます
                       </div>
                     </div>
                   )}

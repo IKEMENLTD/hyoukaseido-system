@@ -57,12 +57,19 @@ export interface NotificationResult {
 /**
  * notification_channelsテーブルのDB行型
  */
+/**
+ * notification_channelsテーブルのDB行型（全カラム）
+ */
 export interface NotificationChannelRow {
   id: string;
+  org_id: string;
   type: 'slack' | 'line' | 'chatwork';
+  channel_name: string;
   webhook_url: string;
   api_token: string | null;
+  is_active: boolean;
   events: string[];
+  last_sent_at: string | null;
 }
 
 /**

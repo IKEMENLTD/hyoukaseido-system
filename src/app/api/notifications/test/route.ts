@@ -19,6 +19,7 @@ interface TestSendBody {
 /** membersテーブルから取得する行の型 */
 interface MemberRow {
   grade: string;
+  org_id: string;
 }
 
 /** notification_channelsテーブルから取得する行の型 */
@@ -123,7 +124,7 @@ export async function POST(request: Request) {
     // 等級チェック (G4/G5のみ)
     const { data: member } = await supabase
       .from('members')
-      .select('grade')
+      .select('grade, org_id')
       .eq('auth_user_id', user.id)
       .single();
 
@@ -153,11 +154,13 @@ export async function POST(request: Request) {
       );
     }
 
-    // DBからチャンネル情報を取得 (webhook_urlはサーバー内でのみ使用)
+    // DBからチャンネル情報を取得 (webhook_url/api_tokenはサーバー内でのみ使用)
+    // org_idフィルタで他組織のチャンネルへのアクセスを防止
     const { data: channel } = await supabase
       .from('notification_channels')
       .select('id, type, webhook_url, api_token, channel_name, org_id, is_active')
       .eq('id', body.channelId)
+      .eq('org_id', memberRow.org_id)
       .single();
 
     if (!channel) {

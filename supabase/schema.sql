@@ -843,7 +843,8 @@ ALTER TABLE notification_channels ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "notification_channels_select" ON notification_channels;
 CREATE POLICY "notification_channels_select" ON notification_channels
   FOR SELECT USING (
-    EXISTS (
+    org_id IN (SELECT org_id FROM members WHERE auth_user_id = auth.uid())
+    AND EXISTS (
       SELECT 1 FROM members WHERE auth_user_id = auth.uid() AND grade IN ('G4', 'G5')
     )
   );
@@ -851,7 +852,8 @@ CREATE POLICY "notification_channels_select" ON notification_channels
 DROP POLICY IF EXISTS "notification_channels_insert" ON notification_channels;
 CREATE POLICY "notification_channels_insert" ON notification_channels
   FOR INSERT WITH CHECK (
-    EXISTS (
+    org_id IN (SELECT org_id FROM members WHERE auth_user_id = auth.uid())
+    AND EXISTS (
       SELECT 1 FROM members WHERE auth_user_id = auth.uid() AND grade IN ('G4', 'G5')
     )
   );
@@ -859,7 +861,8 @@ CREATE POLICY "notification_channels_insert" ON notification_channels
 DROP POLICY IF EXISTS "notification_channels_update" ON notification_channels;
 CREATE POLICY "notification_channels_update" ON notification_channels
   FOR UPDATE USING (
-    EXISTS (
+    org_id IN (SELECT org_id FROM members WHERE auth_user_id = auth.uid())
+    AND EXISTS (
       SELECT 1 FROM members WHERE auth_user_id = auth.uid() AND grade IN ('G4', 'G5')
     )
   );
@@ -867,7 +870,8 @@ CREATE POLICY "notification_channels_update" ON notification_channels
 DROP POLICY IF EXISTS "notification_channels_delete" ON notification_channels;
 CREATE POLICY "notification_channels_delete" ON notification_channels
   FOR DELETE USING (
-    EXISTS (
+    org_id IN (SELECT org_id FROM members WHERE auth_user_id = auth.uid())
+    AND EXISTS (
       SELECT 1 FROM members WHERE auth_user_id = auth.uid() AND grade IN ('G4', 'G5')
     )
   );

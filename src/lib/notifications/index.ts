@@ -13,7 +13,6 @@ export type {
 } from './types';
 
 export { sendNotification } from './send';
-export type { SendNotificationResults } from './send';
 
 export { sendPersonalNotification, sendPersonalNotificationToMembers } from './personal-send';
 

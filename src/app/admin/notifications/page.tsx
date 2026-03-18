@@ -12,7 +12,6 @@ interface NotificationChannelRow {
   type: 'slack' | 'line' | 'chatwork';
   channel_name: string;
   webhook_url: string;
-  api_token: string | null;
   is_active: boolean;
   events: string[];
   last_sent_at: string | null;
@@ -23,7 +22,6 @@ interface DisplayChannel {
   type: 'slack' | 'line' | 'chatwork';
   channelName: string;
   webhookUrl: string;
-  hasApiToken: boolean;
   isActive: boolean;
   events: string[];
   lastSentAt: string | null;
@@ -47,7 +45,7 @@ export default async function AdminNotificationsPage() {
   const supabase = await createClient();
   const { data: rawChannels } = await supabase
     .from('notification_channels')
-    .select('id, type, channel_name, webhook_url, api_token, is_active, events, last_sent_at')
+    .select('id, type, channel_name, webhook_url, is_active, events, last_sent_at')
     .eq('org_id', member.org_id)
     .order('created_at', { ascending: false });
 
@@ -57,7 +55,6 @@ export default async function AdminNotificationsPage() {
       type: row.type,
       channelName: row.channel_name,
       webhookUrl: row.webhook_url,
-      hasApiToken: !!row.api_token,
       isActive: row.is_active,
       events: Array.isArray(row.events) ? row.events : [],
       lastSentAt: row.last_sent_at,

@@ -138,12 +138,6 @@ async function sendToChannel(
   }
 }
 
-/** 通知送信メイン関数の戻り値（組織チャンネル + 個人DM） */
-export interface SendNotificationResults {
-  channelResults: NotificationResult[];
-  personalResults: PersonalNotificationResult[];
-}
-
 /**
  * 通知送信メイン関数
  * 指定イベントに登録されたアクティブな全チャンネルに送信
