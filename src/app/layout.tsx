@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import Sidebar from "@/components/shared/Sidebar";
 import HelpButton from "@/components/shared/HelpButton";
 import WelcomeBanner from "@/components/shared/WelcomeBanner";
+import { createClient } from "@/lib/supabase/server";
 import { Suspense } from "react";
 import "./globals.css";
 
@@ -51,11 +52,31 @@ const navItems = [
   { href: "/profile", label: "プロフィール", icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" },
 ];
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // ユーザー情報を取得してサイドバーに渡す
+  let userInfo: { name: string; email: string } | null = null;
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: member } = await supabase
+        .from('members')
+        .select('name')
+        .eq('auth_user_id', user.id)
+        .single();
+      userInfo = {
+        name: (member?.name as string) ?? '未登録',
+        email: user.email ?? '',
+      };
+    }
+  } catch {
+    // 認証情報取得失敗時はnullのまま（サイドバーにユーザー情報を表示しない）
+  }
+
   return (
     <html lang="ja">
       <head>
@@ -70,7 +91,7 @@ export default function RootLayout({
           }}
         />
         <div className="flex min-h-screen flex-col lg:flex-row">
-          <Sidebar navItems={navItems} />
+          <Sidebar navItems={navItems} userInfo={userInfo} />
           <main className="flex-1 min-w-0">
             {children}
           </main>

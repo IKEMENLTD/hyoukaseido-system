@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
 
 interface NavItem {
   href: string;
@@ -12,14 +13,17 @@ interface NavItem {
 
 interface SidebarProps {
   navItems: NavItem[];
+  userInfo?: { name: string; email: string } | null;
 }
 
 // サイドバーを非表示にするパス
 const AUTH_PATHS = ['/login'];
 
-export default function Sidebar({ navItems }: SidebarProps) {
+export default function Sidebar({ navItems, userInfo }: SidebarProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
   const isAuthPage = AUTH_PATHS.includes(pathname);
 
   // ページ遷移時にメニューを閉じる
@@ -38,6 +42,17 @@ export default function Sidebar({ navItems }: SidebarProps) {
       document.body.style.overflow = '';
     };
   }, [isOpen]);
+
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      router.push('/login');
+    } catch {
+      setLoggingOut(false);
+    }
+  };
 
   // 認証ページではサイドバー・モバイルヘッダーを一切表示しない
   if (isAuthPage) {
@@ -63,6 +78,11 @@ export default function Sidebar({ navItems }: SidebarProps) {
             評価制度システム
           </span>
         </div>
+        {userInfo && (
+          <span className="text-xs text-[#a3a3a3] truncate max-w-[140px]">
+            {userInfo.name}
+          </span>
+        )}
       </div>
 
       {/* モバイルオーバーレイ */}
@@ -136,8 +156,38 @@ export default function Sidebar({ navItems }: SidebarProps) {
           })}
         </ul>
 
-        <div className="px-4 py-3 border-t border-white/10 text-[10px] text-white/30">
-          イケメングループ
+        {/* ユーザー情報 + ログアウト */}
+        <div className="border-t border-white/10">
+          {userInfo ? (
+            <div className="px-4 py-3">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 shrink-0 border border-[#333333] bg-[#0a0a0a] flex items-center justify-center">
+                  <svg className="w-4 h-4 text-[#737373]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                    <path strokeLinecap="square" strokeLinejoin="miter" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold text-[#e5e5e5] truncate">{userInfo.name}</p>
+                  <p className="text-[10px] text-[#737373] truncate">{userInfo.email}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleLogout}
+                disabled={loggingOut}
+                className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-1.5 text-xs text-[#737373] border border-[#1a1a1a] hover:text-[#ef4444] hover:border-[#ef4444]/30 transition-colors disabled:opacity-50"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                  <path strokeLinecap="square" strokeLinejoin="miter" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                {loggingOut ? 'ログアウト中...' : 'ログアウト'}
+              </button>
+            </div>
+          ) : (
+            <div className="px-4 py-3 text-[10px] text-white/30">
+              イケメングループ
+            </div>
+          )}
         </div>
       </nav>
 
