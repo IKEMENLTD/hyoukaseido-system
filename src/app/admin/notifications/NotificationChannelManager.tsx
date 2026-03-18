@@ -65,16 +65,23 @@ const CHANNEL_NAME_PLACEHOLDERS: Record<ChannelType, string> = {
   chatwork: '例: 評価制度通知',
 };
 
-const WEBHOOK_URL_PLACEHOLDERS: Record<ChannelType, string> = {
+/** タイプ別の送信先URLラベル */
+const URL_FIELD_LABELS: Record<ChannelType, string> = {
+  slack: 'Webhook URL',
+  line: 'Messaging API エンドポイント',
+  chatwork: 'API エンドポイント（送信先ルームURL）',
+};
+
+const URL_FIELD_PLACEHOLDERS: Record<ChannelType, string> = {
   slack: 'https://hooks.slack.com/services/...',
   line: 'https://api.line.me/v2/bot/message/...',
   chatwork: 'https://api.chatwork.com/v2/rooms/{ルームID}/messages',
 };
 
-const WEBHOOK_URL_HELP: Record<ChannelType, string> = {
+const URL_FIELD_HELP: Record<ChannelType, string> = {
   slack: 'SlackアプリのIncoming Webhook URLを入力',
-  line: 'LINE Messaging APIのWebhook URLを入力',
-  chatwork: 'ChatWork APIのルームメッセージURL（https://api.chatwork.com/v2/rooms/ルームID/messages）を入力。APIトークンは環境変数 CHATWORK_API_TOKEN で設定',
+  line: 'LINE Messaging APIのエンドポイントURLを入力',
+  chatwork: 'https://api.chatwork.com/v2/rooms/ルームID/messages の形式で入力。ルームIDはChatWorkのチャットURL末尾の数字',
 };
 
 // ---------------------------------------------------------------------------
@@ -118,7 +125,7 @@ const SETUP_GUIDES: Record<ChannelType, SetupGuide> = {
       },
     ],
     notes: [
-      '1つのWebhook URLにつき1チャンネルへの送信',
+      '1つのURLにつき1チャンネルへの送信',
       '複数チャンネルに送信する場合はそれぞれWebhookを作成',
     ],
   },
@@ -140,8 +147,8 @@ const SETUP_GUIDES: Record<ChannelType, SetupGuide> = {
         description: 'チャネル設定の「Messaging API設定」タブ →「チャネルアクセストークン（長期）」を発行',
       },
       {
-        title: 'Webhook URLを設定',
-        description: 'Messaging API設定 → Webhook URLに https://api.line.me/v2/bot/message/push を使用。アクセストークンは環境変数 LINE_MESSAGING_CHANNEL_ACCESS_TOKEN に設定',
+        title: 'エンドポイントURLを確認',
+        description: 'Messaging API設定 → エンドポイントURLとして https://api.line.me/v2/bot/message/push を使用。アクセストークンはフォームの「LINE チャネルアクセストークン」欄に入力',
       },
       {
         title: '友だち追加',
@@ -160,19 +167,19 @@ const SETUP_GUIDES: Record<ChannelType, SetupGuide> = {
     steps: [
       {
         title: 'ChatWork APIトークンを取得',
-        description: 'ChatWorkにログイン → 右上のアイコン →「サービス連携」→「API」→「APIトークン」でトークンを取得。このトークンを環境変数 CHATWORK_API_TOKEN に設定',
+        description: 'ChatWorkにログイン → 右上のアイコン →「サービス連携」→「API」→「APIトークン」でトークンを取得。このトークンをフォームの「ChatWork APIトークン」欄に入力',
       },
       {
         title: '通知先ルームIDを確認',
         description: 'ChatWorkで通知を送りたいチャットルームを開く。URLの「#!rid」以降の数字がルームID（例: https://www.chatwork.com/#!rid123456789 → ルームIDは 123456789）',
       },
       {
-        title: 'Webhook URLを組み立て',
+        title: 'APIエンドポイントURLを組み立て',
         description: 'https://api.chatwork.com/v2/rooms/{ルームID}/messages の形式でURLを作成（例: https://api.chatwork.com/v2/rooms/123456789/messages）',
       },
       {
         title: 'フォームに入力',
-        description: 'チャンネル名に任意の名前、Webhook URLに上記URLを入力し、対象イベントを選択して保存',
+        description: 'チャンネル名に任意の名前、APIエンドポイントURLに上記URLを入力し、APIトークンと対象イベントを設定して保存',
       },
     ],
     notes: [
@@ -367,10 +374,10 @@ export default function NotificationChannelManager({
 
   const validate = useCallback((mode: 'add' | 'edit'): string | null => {
     if (!form.channelName.trim()) return 'チャンネル名を入力してください';
-    if (!form.webhookUrl.trim()) return 'Webhook URLを入力してください';
+    if (!form.webhookUrl.trim()) return '送信先URLを入力してください';
 
     const url = form.webhookUrl.trim();
-    if (!url.startsWith('https://')) return 'Webhook URLはhttps://で始まる必要があります';
+    if (!url.startsWith('https://')) return 'URLはhttps://で始まる必要があります';
 
     if (form.channelType === 'slack' && !url.includes('hooks.slack.com/')) {
       return 'Slack Webhook URLの形式が正しくありません（hooks.slack.com を含む必要があります）';
@@ -600,10 +607,10 @@ export default function NotificationChannelManager({
         />
       </div>
 
-      {/* Webhook URL */}
+      {/* 送信先URL */}
       <div>
         <div className="text-[10px] text-[#737373] uppercase tracking-wider mb-1">
-          Webhook URL
+          {URL_FIELD_LABELS[form.channelType]}
         </div>
         <input
           type="text"
@@ -611,11 +618,11 @@ export default function NotificationChannelManager({
           onChange={(e) =>
             setForm((prev) => ({ ...prev, webhookUrl: e.target.value }))
           }
-          placeholder={WEBHOOK_URL_PLACEHOLDERS[form.channelType]}
+          placeholder={URL_FIELD_PLACEHOLDERS[form.channelType]}
           className="w-full bg-[#111111] border border-[#333333] text-[#e5e5e5] px-3 py-2 text-sm focus:border-[#3b82f6] focus:outline-none"
         />
         <p className="text-[10px] text-[#525252] mt-1">
-          {WEBHOOK_URL_HELP[form.channelType]}
+          {URL_FIELD_HELP[form.channelType]}
         </p>
       </div>
 
@@ -784,10 +791,10 @@ export default function NotificationChannelManager({
 
                 {/* 内容 */}
                 <div className="p-4 space-y-3">
-                  {/* Webhook URL (マスク表示) */}
+                  {/* 送信先URL (マスク表示) */}
                   <div>
                     <div className="text-[10px] text-[#737373] uppercase tracking-wider mb-1">
-                      Webhook URL
+                      {URL_FIELD_LABELS[channel.type]}
                     </div>
                     <div className="text-xs text-[#404040] font-mono">
                       {channel.webhookUrl.substring(0, 30)}...

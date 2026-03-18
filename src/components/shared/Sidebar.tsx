@@ -96,9 +96,9 @@ export default function Sidebar({ navItems, userInfo }: SidebarProps) {
       {/* サイドバー本体 */}
       <nav
         className={`
-          fixed top-0 left-0 h-full z-[60] w-60 bg-[#050505] border-r border-white/10 flex flex-col
+          fixed top-0 left-0 h-screen z-[60] w-60 bg-[#050505] border-r border-white/10 flex flex-col
           transition-transform duration-200 ease-out
-          lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 lg:shrink-0
+          lg:translate-x-0
           ${isOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
       >
@@ -193,6 +193,8 @@ export default function Sidebar({ navItems, userInfo }: SidebarProps) {
 
       {/* モバイルヘッダー分のスペーサー (lg未満でコンテンツが被らないよう) */}
       <div className="lg:hidden h-[52px] shrink-0" />
+      {/* デスクトップ: fixedサイドバー分の幅を確保 */}
+      <div className="hidden lg:block w-60 shrink-0" />
     </>
   );
 }
