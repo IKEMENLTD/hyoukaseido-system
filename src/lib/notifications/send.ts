@@ -90,14 +90,26 @@ async function sendToChannel(
         : buildLinePayload(payload);
 
   try {
-    // ChatWorkはREST APIで認証ヘッダー + x-www-form-urlencoded が必要
+    // ChatWork/LINEはAPIトークンが必要
+    if (channel.type === 'chatwork' && !channel.apiToken) {
+      return { channelId: channel.id, success: false, error: 'ChatWork APIトークンが未設定です' };
+    }
+    if (channel.type === 'line' && !channel.apiToken) {
+      return { channelId: channel.id, success: false, error: 'LINE チャネルアクセストークンが未設定です' };
+    }
+
     const headers: Record<string, string> =
       channel.type === 'chatwork'
         ? {
-            'X-ChatWorkToken': process.env.CHATWORK_API_TOKEN ?? '',
+            'X-ChatWorkToken': channel.apiToken ?? '',
             'Content-Type': 'application/x-www-form-urlencoded',
           }
-        : { 'Content-Type': 'application/json' };
+        : channel.type === 'line'
+          ? {
+              'Authorization': `Bearer ${channel.apiToken ?? ''}`,
+              'Content-Type': 'application/json',
+            }
+          : { 'Content-Type': 'application/json' };
 
     const requestBody =
       channel.type === 'chatwork'
@@ -153,7 +165,7 @@ export async function sendNotification(
   // このイベントを購読しているアクティブチャンネルを取得
   const { data: channels } = await supabase
     .from('notification_channels')
-    .select('id, type, webhook_url, events')
+    .select('id, type, webhook_url, api_token, events')
     .eq('org_id', orgId)
     .eq('is_active', true);
 
@@ -172,6 +184,7 @@ export async function sendNotification(
       id: ch.id,
       type: ch.type,
       webhookUrl: ch.webhook_url,
+      apiToken: ch.api_token,
       events: ch.events,
     }));
 

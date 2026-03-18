@@ -18,6 +18,7 @@ interface NotificationChannel {
   type: 'slack' | 'line' | 'chatwork';
   channelName: string;
   webhookUrl: string;
+  hasApiToken: boolean;
   isActive: boolean;
   events: string[];
   lastSentAt: string | null;
@@ -190,13 +191,30 @@ interface ChannelFormState {
   channelType: ChannelType;
   channelName: string;
   webhookUrl: string;
+  apiToken: string;
   selectedEvents: string[];
 }
+
+/** APIトークンが必要なチャンネルタイプ */
+const REQUIRES_API_TOKEN: ReadonlySet<ChannelType> = new Set(['chatwork', 'line']);
+
+const API_TOKEN_LABELS: Record<ChannelType, string> = {
+  slack: '',
+  chatwork: 'ChatWork APIトークン',
+  line: 'LINE チャネルアクセストークン',
+};
+
+const API_TOKEN_PLACEHOLDERS: Record<ChannelType, string> = {
+  slack: '',
+  chatwork: 'ChatWork管理画面 > サービス連携 > API > APIトークンで取得',
+  line: 'LINE Developers > チャネル設定 > チャネルアクセストークン（長期）で発行',
+};
 
 const INITIAL_FORM: ChannelFormState = {
   channelType: 'slack',
   channelName: '',
   webhookUrl: '',
+  apiToken: '',
   selectedEvents: [],
 };
 
@@ -326,6 +344,7 @@ export default function NotificationChannelManager({
       channelType: channel.type,
       channelName: channel.channelName,
       webhookUrl: channel.webhookUrl,
+      apiToken: '',
       selectedEvents: [...channel.events],
     });
     setEditingId(channel.id);
@@ -346,7 +365,7 @@ export default function NotificationChannelManager({
   // バリデーション
   // -----------------------------------------------------------------------
 
-  const validate = useCallback((): string | null => {
+  const validate = useCallback((mode: 'add' | 'edit'): string | null => {
     if (!form.channelName.trim()) return 'チャンネル名を入力してください';
     if (!form.webhookUrl.trim()) return 'Webhook URLを入力してください';
 
@@ -363,6 +382,11 @@ export default function NotificationChannelManager({
       return 'LINE URLの形式が正しくありません（api.line.me を含む必要があります）';
     }
 
+    // 追加時はAPIトークン必須、編集時は空欄なら既存値を維持するのでOK
+    if (mode === 'add' && REQUIRES_API_TOKEN.has(form.channelType) && !form.apiToken.trim()) {
+      return `${API_TOKEN_LABELS[form.channelType]}を入力してください`;
+    }
+
     if (form.selectedEvents.length === 0) return 'イベントを1つ以上選択してください';
     return null;
   }, [form]);
@@ -372,7 +396,7 @@ export default function NotificationChannelManager({
   // -----------------------------------------------------------------------
 
   const handleAdd = useCallback(async () => {
-    const err = validate();
+    const err = validate(editingId ? 'edit' : 'add');
     if (err) {
       setErrorMessage(err);
       return;
@@ -388,6 +412,7 @@ export default function NotificationChannelManager({
         type: form.channelType,
         channel_name: form.channelName.trim(),
         webhook_url: form.webhookUrl.trim(),
+        api_token: REQUIRES_API_TOKEN.has(form.channelType) ? form.apiToken.trim() : null,
         is_active: true,
         events: form.selectedEvents,
       });
@@ -413,7 +438,7 @@ export default function NotificationChannelManager({
   const handleEdit = useCallback(async () => {
     if (!editingId) return;
 
-    const err = validate();
+    const err = validate(editingId ? 'edit' : 'add');
     if (err) {
       setErrorMessage(err);
       return;
@@ -424,13 +449,18 @@ export default function NotificationChannelManager({
 
     try {
       const supabase = createClient();
+      const updateData: Record<string, unknown> = {
+        channel_name: form.channelName.trim(),
+        webhook_url: form.webhookUrl.trim(),
+        events: form.selectedEvents,
+      };
+      // APIトークンが入力された場合のみ更新（空欄なら既存値を維持）
+      if (form.apiToken.trim()) {
+        updateData.api_token = form.apiToken.trim();
+      }
       const { error } = await supabase
         .from('notification_channels')
-        .update({
-          channel_name: form.channelName.trim(),
-          webhook_url: form.webhookUrl.trim(),
-          events: form.selectedEvents,
-        })
+        .update(updateData)
         .eq('id', editingId);
 
       if (error) {
@@ -589,6 +619,31 @@ export default function NotificationChannelManager({
         </p>
       </div>
 
+      {/* APIトークン (ChatWork / LINE のみ) */}
+      {REQUIRES_API_TOKEN.has(form.channelType) && (
+        <div>
+          <div className="text-[10px] text-[#737373] uppercase tracking-wider mb-1">
+            {API_TOKEN_LABELS[form.channelType]}
+            <span className="text-[#ef4444] ml-1">必須</span>
+          </div>
+          <input
+            type="password"
+            value={form.apiToken}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, apiToken: e.target.value }))
+            }
+            placeholder={API_TOKEN_PLACEHOLDERS[form.channelType]}
+            autoComplete="off"
+            className="w-full bg-[#111111] border border-[#333333] text-[#e5e5e5] px-3 py-2 text-sm focus:border-[#3b82f6] focus:outline-none font-mono"
+          />
+          {mode === 'edit' && (
+            <p className="text-[10px] text-[#525252] mt-1">
+              変更する場合のみ入力（空欄なら既存のトークンを維持）
+            </p>
+          )}
+        </div>
+      )}
+
       {/* イベント選択 */}
       <div>
         <div className="text-[10px] text-[#737373] uppercase tracking-wider mb-2">
@@ -738,6 +793,18 @@ export default function NotificationChannelManager({
                       {channel.webhookUrl.substring(0, 30)}...
                     </div>
                   </div>
+
+                  {/* APIトークン状態 (ChatWork / LINE のみ) */}
+                  {(channel.type === 'chatwork' || channel.type === 'line') && (
+                    <div>
+                      <div className="text-[10px] text-[#737373] uppercase tracking-wider mb-1">
+                        {API_TOKEN_LABELS[channel.type]}
+                      </div>
+                      <div className={`text-xs font-medium ${channel.hasApiToken ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>
+                        {channel.hasApiToken ? '設定済み' : '未設定 - 編集から設定してください'}
+                      </div>
+                    </div>
+                  )}
 
                   {/* 対象イベント */}
                   <div>

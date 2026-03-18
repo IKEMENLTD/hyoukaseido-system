@@ -831,6 +831,7 @@ CREATE TABLE IF NOT EXISTS notification_channels (
   type TEXT NOT NULL CHECK (type IN ('slack', 'line', 'chatwork')),
   channel_name TEXT NOT NULL,
   webhook_url TEXT NOT NULL,
+  api_token TEXT,
   is_active BOOLEAN DEFAULT true,
   events JSONB DEFAULT '[]'::jsonb,
   last_sent_at TIMESTAMPTZ,

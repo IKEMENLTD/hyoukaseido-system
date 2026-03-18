@@ -26,6 +26,7 @@ interface ChannelRow {
   id: string;
   type: 'slack' | 'line' | 'chatwork';
   webhook_url: string;
+  api_token: string | null;
   channel_name: string;
   org_id: string;
   is_active: boolean;
@@ -49,23 +50,47 @@ const RATE_LIMIT_WINDOW_MS = 5000;
 // テスト送信ペイロード構築
 // ---------------------------------------------------------------------------
 
-function buildTestPayload(type: 'slack' | 'line' | 'chatwork'): string {
+interface TestPayloadResult {
+  body: string;
+  contentType: string;
+  headers: Record<string, string>;
+}
+
+function buildTestPayload(channel: ChannelRow): TestPayloadResult {
   const testMessage = '[テスト] 評価制度システムからのテスト通知です';
 
-  if (type === 'slack') {
-    return JSON.stringify({ text: testMessage });
+  if (channel.type === 'chatwork') {
+    return {
+      body: new URLSearchParams({
+        body: `[info][title]テスト通知[/title]${testMessage}[/info]`,
+      }).toString(),
+      contentType: 'application/x-www-form-urlencoded',
+      headers: {
+        'X-ChatWorkToken': channel.api_token ?? '',
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+    };
   }
 
-  if (type === 'chatwork') {
-    return JSON.stringify({
-      body: `[info][title]テスト通知[/title]${testMessage}[/info]`,
-    });
+  if (channel.type === 'line') {
+    return {
+      body: JSON.stringify({
+        messages: [{ type: 'text', text: testMessage }],
+      }),
+      contentType: 'application/json',
+      headers: {
+        'Authorization': `Bearer ${channel.api_token ?? ''}`,
+        'Content-Type': 'application/json',
+      },
+    };
   }
 
-  // LINE
-  return JSON.stringify({
-    messages: [{ type: 'text', text: testMessage }],
-  });
+  // Slack
+  return {
+    body: JSON.stringify({ text: testMessage }),
+    contentType: 'application/json',
+    headers: { 'Content-Type': 'application/json' },
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -131,7 +156,7 @@ export async function POST(request: Request) {
     // DBからチャンネル情報を取得 (webhook_urlはサーバー内でのみ使用)
     const { data: channel } = await supabase
       .from('notification_channels')
-      .select('id, type, webhook_url, channel_name, org_id, is_active')
+      .select('id, type, webhook_url, api_token, channel_name, org_id, is_active')
       .eq('id', body.channelId)
       .single();
 
@@ -151,13 +176,27 @@ export async function POST(request: Request) {
       );
     }
 
+    // ChatWork/LINEのトークンチェック
+    if (channelRow.type === 'chatwork' && !channelRow.api_token) {
+      return NextResponse.json(
+        { error: 'ChatWork APIトークンが設定されていません。チャンネルを編集してトークンを入力してください', channelName: channelRow.channel_name },
+        { status: 400 }
+      );
+    }
+    if (channelRow.type === 'line' && !channelRow.api_token) {
+      return NextResponse.json(
+        { error: 'LINE チャネルアクセストークンが設定されていません。チャンネルを編集してトークンを入力してください', channelName: channelRow.channel_name },
+        { status: 400 }
+      );
+    }
+
     // サーバーサイドからWebhookにテスト送信
-    const payloadBody = buildTestPayload(channelRow.type);
+    const payload = buildTestPayload(channelRow);
 
     const response = await fetch(channelRow.webhook_url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: payloadBody,
+      headers: payload.headers,
+      body: payload.body,
       signal: AbortSignal.timeout(TEST_SEND_TIMEOUT_MS),
     });
 

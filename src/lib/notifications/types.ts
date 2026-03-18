@@ -41,6 +41,7 @@ export interface NotificationChannel {
   id: string;
   type: 'slack' | 'line' | 'chatwork';
   webhookUrl: string;
+  apiToken: string | null;
   events: string[];
 }
 
@@ -60,6 +61,7 @@ export interface NotificationChannelRow {
   id: string;
   type: 'slack' | 'line' | 'chatwork';
   webhook_url: string;
+  api_token: string | null;
   events: string[];
 }
 
