@@ -74,14 +74,44 @@ const URL_FIELD_LABELS: Record<ChannelType, string> = {
 const URL_FIELD_PLACEHOLDERS: Record<ChannelType, string> = {
   slack: 'https://hooks.slack.com/services/...',
   line: 'https://api.line.me/v2/bot/message/push',
-  chatwork: 'https://api.chatwork.com/v2/rooms/{ルームID}/messages',
+  chatwork: 'https://www.chatwork.com/#!rid123456789 またはルームIDを入力',
 };
 
 const URL_FIELD_HELP: Record<ChannelType, string> = {
   slack: 'SlackアプリのIncoming Webhook URLを入力',
   line: 'LINE Messaging APIのエンドポイントURLを入力',
-  chatwork: 'https://api.chatwork.com/v2/rooms/ルームID/messages の形式で入力。ルームIDはChatWorkのチャットURL末尾の数字',
+  chatwork: 'ChatWorkのチャットURLをそのまま貼り付けてください（自動変換されます）',
 };
+
+/**
+ * ChatWorkのルームURLまたはルームIDからAPIエンドポイントURLに変換
+ * 対応形式:
+ *   https://www.chatwork.com/#!rid426576009
+ *   https://api.chatwork.com/v2/rooms/426576009/messages (そのまま)
+ *   426576009 (数字のみ)
+ */
+function normalizeChatworkUrl(input: string): string {
+  const trimmed = input.trim();
+
+  // 既にAPIエンドポイント形式ならそのまま
+  if (trimmed.includes('api.chatwork.com/v2/rooms/')) {
+    return trimmed;
+  }
+
+  // ChatWorkルームURL: #!rid の後の数字を抽出
+  const ridMatch = trimmed.match(/#!rid(\d+)/);
+  if (ridMatch) {
+    return `https://api.chatwork.com/v2/rooms/${ridMatch[1]}/messages`;
+  }
+
+  // 数字のみ（ルームID直接入力）
+  if (/^\d+$/.test(trimmed)) {
+    return `https://api.chatwork.com/v2/rooms/${trimmed}/messages`;
+  }
+
+  // それ以外はそのまま返す（バリデーションでエラーになる）
+  return trimmed;
+}
 
 // ---------------------------------------------------------------------------
 // チャンネルタイプ別セットアップ手順
@@ -169,16 +199,12 @@ const SETUP_GUIDES: Record<ChannelType, SetupGuide> = {
         description: 'ChatWorkにログイン → 右上のアイコン →「サービス連携」→「API」→「APIトークン」でトークンを取得。このトークンをフォームの「ChatWork APIトークン」欄に入力',
       },
       {
-        title: '通知先ルームIDを確認',
-        description: 'ChatWorkで通知を送りたいチャットルームを開く。URLの「#!rid」以降の数字がルームID（例: https://www.chatwork.com/#!rid123456789 → ルームIDは 123456789）',
+        title: '通知先ルームのURLをコピー',
+        description: 'ChatWorkで通知を送りたいチャットルームを開き、ブラウザのURLをそのままコピー（例: https://www.chatwork.com/#!rid123456789）',
       },
       {
-        title: 'APIエンドポイントURLを組み立て',
-        description: 'https://api.chatwork.com/v2/rooms/{ルームID}/messages の形式でURLを作成（例: https://api.chatwork.com/v2/rooms/123456789/messages）',
-      },
-      {
-        title: 'フォームに入力',
-        description: 'チャンネル名に任意の名前、APIエンドポイントURLに上記URLを入力し、APIトークンと対象イベントを設定して保存',
+        title: 'フォームに貼り付け',
+        description: 'コピーしたURLをそのまま貼り付けてください。APIエンドポイントに自動変換されます。ルームIDの数字だけでもOK',
       },
     ],
     notes: [
@@ -375,14 +401,18 @@ export default function NotificationChannelManager({
     if (!form.channelName.trim()) return 'チャンネル名を入力してください';
     if (!form.webhookUrl.trim()) return '送信先URLを入力してください';
 
-    const url = form.webhookUrl.trim();
+    // ChatWorkの場合は自動変換を適用
+    const url = form.channelType === 'chatwork'
+      ? normalizeChatworkUrl(form.webhookUrl)
+      : form.webhookUrl.trim();
+
     if (!url.startsWith('https://')) return 'URLはhttps://で始まる必要があります';
 
     if (form.channelType === 'slack' && !url.includes('hooks.slack.com/')) {
       return 'Slack Webhook URLの形式が正しくありません（hooks.slack.com を含む必要があります）';
     }
     if (form.channelType === 'chatwork' && !url.includes('api.chatwork.com/v2/rooms/')) {
-      return 'ChatWork URLの形式が正しくありません（https://api.chatwork.com/v2/rooms/{ルームID}/messages）';
+      return 'ChatWork URLの変換に失敗しました。チャットルームURLまたはルームIDを入力してください';
     }
     if (form.channelType === 'line' && !url.includes('api.line.me/')) {
       return 'LINE URLの形式が正しくありません（api.line.me を含む必要があります）';
@@ -417,7 +447,7 @@ export default function NotificationChannelManager({
         org_id: orgId,
         type: form.channelType,
         channel_name: form.channelName.trim(),
-        webhook_url: form.webhookUrl.trim(),
+        webhook_url: form.channelType === 'chatwork' ? normalizeChatworkUrl(form.webhookUrl) : form.webhookUrl.trim(),
         api_token: REQUIRES_API_TOKEN.has(form.channelType) ? form.apiToken.trim() : null,
         is_active: true,
         events: form.selectedEvents,
@@ -457,7 +487,7 @@ export default function NotificationChannelManager({
       const supabase = createClient();
       const updateData: Record<string, unknown> = {
         channel_name: form.channelName.trim(),
-        webhook_url: form.webhookUrl.trim(),
+        webhook_url: form.channelType === 'chatwork' ? normalizeChatworkUrl(form.webhookUrl) : form.webhookUrl.trim(),
         events: form.selectedEvents,
       };
       // APIトークンが入力された場合のみ更新（空欄なら既存値を維持）
