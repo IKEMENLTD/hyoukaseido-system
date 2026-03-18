@@ -884,14 +884,14 @@ ALTER TABLE divisions ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "divisions_select" ON divisions;
 CREATE POLICY "divisions_select" ON divisions
-  FOR SELECT USING (true);
+  FOR SELECT USING (
+    org_id IN (SELECT org_id FROM members WHERE auth_user_id = auth.uid())
+  );
 
 DROP POLICY IF EXISTS "divisions_modify" ON divisions;
 CREATE POLICY "divisions_modify" ON divisions
   FOR ALL USING (
-    EXISTS (
-      SELECT 1 FROM members WHERE auth_user_id = auth.uid() AND grade IN ('G4', 'G5')
-    )
+    org_id IN (SELECT org_id FROM members WHERE auth_user_id = auth.uid() AND grade IN ('G4', 'G5'))
   );
 
 -- === division_members ===
@@ -899,14 +899,14 @@ ALTER TABLE division_members ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "division_members_select" ON division_members;
 CREATE POLICY "division_members_select" ON division_members
-  FOR SELECT USING (true);
+  FOR SELECT USING (
+    division_id IN (SELECT id FROM divisions WHERE org_id IN (SELECT org_id FROM members WHERE auth_user_id = auth.uid()))
+  );
 
 DROP POLICY IF EXISTS "division_members_modify" ON division_members;
 CREATE POLICY "division_members_modify" ON division_members
   FOR ALL USING (
-    EXISTS (
-      SELECT 1 FROM members WHERE auth_user_id = auth.uid() AND grade IN ('G4', 'G5')
-    )
+    division_id IN (SELECT id FROM divisions WHERE org_id IN (SELECT org_id FROM members WHERE auth_user_id = auth.uid() AND grade IN ('G4', 'G5')))
   );
 
 -- === grade_definitions ===
@@ -914,14 +914,14 @@ ALTER TABLE grade_definitions ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "grade_definitions_select" ON grade_definitions;
 CREATE POLICY "grade_definitions_select" ON grade_definitions
-  FOR SELECT USING (true);
+  FOR SELECT USING (
+    org_id IN (SELECT org_id FROM members WHERE auth_user_id = auth.uid())
+  );
 
 DROP POLICY IF EXISTS "grade_definitions_modify" ON grade_definitions;
 CREATE POLICY "grade_definitions_modify" ON grade_definitions
   FOR ALL USING (
-    EXISTS (
-      SELECT 1 FROM members WHERE auth_user_id = auth.uid() AND grade IN ('G4', 'G5')
-    )
+    org_id IN (SELECT org_id FROM members WHERE auth_user_id = auth.uid() AND grade IN ('G4', 'G5'))
   );
 
 -- === kpi_templates ===
@@ -929,14 +929,14 @@ ALTER TABLE kpi_templates ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "kpi_templates_select" ON kpi_templates;
 CREATE POLICY "kpi_templates_select" ON kpi_templates
-  FOR SELECT USING (true);
+  FOR SELECT USING (
+    division_id IN (SELECT id FROM divisions WHERE org_id IN (SELECT org_id FROM members WHERE auth_user_id = auth.uid()))
+  );
 
 DROP POLICY IF EXISTS "kpi_templates_modify" ON kpi_templates;
 CREATE POLICY "kpi_templates_modify" ON kpi_templates
   FOR ALL USING (
-    EXISTS (
-      SELECT 1 FROM members WHERE auth_user_id = auth.uid() AND grade IN ('G4', 'G5')
-    )
+    division_id IN (SELECT id FROM divisions WHERE org_id IN (SELECT org_id FROM members WHERE auth_user_id = auth.uid() AND grade IN ('G4', 'G5')))
   );
 
 -- === kpi_items ===
@@ -944,14 +944,14 @@ ALTER TABLE kpi_items ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "kpi_items_select" ON kpi_items;
 CREATE POLICY "kpi_items_select" ON kpi_items
-  FOR SELECT USING (true);
+  FOR SELECT USING (
+    template_id IN (SELECT id FROM kpi_templates WHERE division_id IN (SELECT id FROM divisions WHERE org_id IN (SELECT org_id FROM members WHERE auth_user_id = auth.uid())))
+  );
 
 DROP POLICY IF EXISTS "kpi_items_modify" ON kpi_items;
 CREATE POLICY "kpi_items_modify" ON kpi_items
   FOR ALL USING (
-    EXISTS (
-      SELECT 1 FROM members WHERE auth_user_id = auth.uid() AND grade IN ('G4', 'G5')
-    )
+    template_id IN (SELECT id FROM kpi_templates WHERE division_id IN (SELECT id FROM divisions WHERE org_id IN (SELECT org_id FROM members WHERE auth_user_id = auth.uid() AND grade IN ('G4', 'G5'))))
   );
 
 -- === value_items ===
@@ -959,14 +959,14 @@ ALTER TABLE value_items ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "value_items_select" ON value_items;
 CREATE POLICY "value_items_select" ON value_items
-  FOR SELECT USING (true);
+  FOR SELECT USING (
+    org_id IN (SELECT org_id FROM members WHERE auth_user_id = auth.uid())
+  );
 
 DROP POLICY IF EXISTS "value_items_modify" ON value_items;
 CREATE POLICY "value_items_modify" ON value_items
   FOR ALL USING (
-    EXISTS (
-      SELECT 1 FROM members WHERE auth_user_id = auth.uid() AND grade IN ('G4', 'G5')
-    )
+    org_id IN (SELECT org_id FROM members WHERE auth_user_id = auth.uid() AND grade IN ('G4', 'G5'))
   );
 
 -- === behavior_items ===
@@ -974,14 +974,14 @@ ALTER TABLE behavior_items ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "behavior_items_select" ON behavior_items;
 CREATE POLICY "behavior_items_select" ON behavior_items
-  FOR SELECT USING (true);
+  FOR SELECT USING (
+    template_id IN (SELECT id FROM kpi_templates WHERE division_id IN (SELECT id FROM divisions WHERE org_id IN (SELECT org_id FROM members WHERE auth_user_id = auth.uid())))
+  );
 
 DROP POLICY IF EXISTS "behavior_items_modify" ON behavior_items;
 CREATE POLICY "behavior_items_modify" ON behavior_items
   FOR ALL USING (
-    EXISTS (
-      SELECT 1 FROM members WHERE auth_user_id = auth.uid() AND grade IN ('G4', 'G5')
-    )
+    template_id IN (SELECT id FROM kpi_templates WHERE division_id IN (SELECT id FROM divisions WHERE org_id IN (SELECT org_id FROM members WHERE auth_user_id = auth.uid() AND grade IN ('G4', 'G5'))))
   );
 
 -- === okr_periods ===
@@ -989,14 +989,14 @@ ALTER TABLE okr_periods ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "okr_periods_select" ON okr_periods;
 CREATE POLICY "okr_periods_select" ON okr_periods
-  FOR SELECT USING (true);
+  FOR SELECT USING (
+    org_id IN (SELECT org_id FROM members WHERE auth_user_id = auth.uid())
+  );
 
 DROP POLICY IF EXISTS "okr_periods_modify" ON okr_periods;
 CREATE POLICY "okr_periods_modify" ON okr_periods
   FOR ALL USING (
-    EXISTS (
-      SELECT 1 FROM members WHERE auth_user_id = auth.uid() AND grade IN ('G4', 'G5')
-    )
+    org_id IN (SELECT org_id FROM members WHERE auth_user_id = auth.uid() AND grade IN ('G4', 'G5'))
   );
 
 -- === okr_objectives ===
@@ -1294,14 +1294,14 @@ ALTER TABLE eval_periods ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "eval_periods_select" ON eval_periods;
 CREATE POLICY "eval_periods_select" ON eval_periods
-  FOR SELECT USING (true);
+  FOR SELECT USING (
+    org_id IN (SELECT org_id FROM members WHERE auth_user_id = auth.uid())
+  );
 
 DROP POLICY IF EXISTS "eval_periods_modify" ON eval_periods;
 CREATE POLICY "eval_periods_modify" ON eval_periods
   FOR ALL USING (
-    EXISTS (
-      SELECT 1 FROM members WHERE auth_user_id = auth.uid() AND grade IN ('G4', 'G5')
-    )
+    org_id IN (SELECT org_id FROM members WHERE auth_user_id = auth.uid() AND grade IN ('G4', 'G5'))
   );
 
 -- === eval_period_okr_periods ===
@@ -1339,14 +1339,14 @@ ALTER TABLE crosssell_routes ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "crosssell_routes_select" ON crosssell_routes;
 CREATE POLICY "crosssell_routes_select" ON crosssell_routes
-  FOR SELECT USING (true);
+  FOR SELECT USING (
+    org_id IN (SELECT org_id FROM members WHERE auth_user_id = auth.uid())
+  );
 
 DROP POLICY IF EXISTS "crosssell_routes_modify" ON crosssell_routes;
 CREATE POLICY "crosssell_routes_modify" ON crosssell_routes
   FOR ALL USING (
-    EXISTS (
-      SELECT 1 FROM members WHERE auth_user_id = auth.uid() AND grade IN ('G4', 'G5')
-    )
+    org_id IN (SELECT org_id FROM members WHERE auth_user_id = auth.uid() AND grade IN ('G4', 'G5'))
   );
 
 CREATE INDEX IF NOT EXISTS idx_evaluations_period ON evaluations(eval_period_id);
