@@ -31,6 +31,7 @@ interface ChannelRow {
   channel_name: string;
   org_id: string;
   is_active: boolean;
+  last_sent_at: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -43,8 +44,7 @@ const ALLOWED_GRADES: ReadonlySet<string> = new Set(['G4', 'G5']);
 /** テスト送信のタイムアウト (ms) */
 const TEST_SEND_TIMEOUT_MS = 10000;
 
-/** レートリミット: ユーザーID -> 最終リクエスト時刻 */
-const rateLimitMap = new Map<string, number>();
+/** レートリミット: チャンネルのlast_sent_atから何ms以内なら拒否するか */
 const RATE_LIMIT_WINDOW_MS = 5000;
 
 // ---------------------------------------------------------------------------
@@ -110,17 +110,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
 
-    // レートリミット
-    const now = Date.now();
-    const lastRequest = rateLimitMap.get(user.id);
-    if (lastRequest && now - lastRequest < RATE_LIMIT_WINDOW_MS) {
-      return NextResponse.json(
-        { error: 'リクエストが多すぎます。しばらく待ってから再試行してください' },
-        { status: 429 }
-      );
-    }
-    rateLimitMap.set(user.id, now);
-
     // 等級チェック (G4/G5のみ)
     const { data: member } = await supabase
       .from('members')
@@ -158,7 +147,7 @@ export async function POST(request: Request) {
     // org_idフィルタで他組織のチャンネルへのアクセスを防止
     const { data: channel } = await supabase
       .from('notification_channels')
-      .select('id, type, webhook_url, api_token, channel_name, org_id, is_active')
+      .select('id, type, webhook_url, api_token, channel_name, org_id, is_active, last_sent_at')
       .eq('id', body.channelId)
       .eq('org_id', memberRow.org_id)
       .single();
@@ -171,6 +160,18 @@ export async function POST(request: Request) {
     }
 
     const channelRow = channel as unknown as ChannelRow;
+
+    // レートリミット: last_sent_atから5秒以内なら拒否
+    // サーバーレス環境でも機能するDB問い合わせベースのレートリミット
+    if (channelRow.last_sent_at) {
+      const lastSentTime = new Date(channelRow.last_sent_at).getTime();
+      if (Date.now() - lastSentTime < RATE_LIMIT_WINDOW_MS) {
+        return NextResponse.json(
+          { error: 'リクエストが多すぎます。しばらく待ってから再試行してください' },
+          { status: 429 }
+        );
+      }
+    }
 
     if (!channelRow.is_active) {
       return NextResponse.json(
@@ -212,6 +213,12 @@ export async function POST(request: Request) {
         { status: 502 }
       );
     }
+
+    // テスト送信成功時にlast_sent_atを更新（レートリミットの基準値として使用）
+    await supabase
+      .from('notification_channels')
+      .update({ last_sent_at: new Date().toISOString() })
+      .eq('id', channelRow.id);
 
     return NextResponse.json({
       success: true,

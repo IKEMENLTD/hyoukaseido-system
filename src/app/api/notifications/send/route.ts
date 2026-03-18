@@ -36,9 +36,9 @@ const ADMIN_ONLY_EVENTS: ReadonlySet<string> = new Set<string>([
 /** 管理者等級 */
 const MANAGER_GRADES: ReadonlySet<string> = new Set(['G3', 'G4', 'G5']);
 
-/** 簡易レートリミット: ユーザーID → 最終リクエスト時刻 */
-const rateLimitMap = new Map<string, number>();
-const RATE_LIMIT_WINDOW_MS = 5000; // 5秒間に1リクエストまで
+// NOTE: サーバーレス環境ではメモリ内レートリミットは機能しない（各リクエストが
+// 別インスタンスで実行されMapが共有されないため）。必要な場合はRedis/Supabaseで実装する。
+// 本APIは認証済みユーザー限定かつ冪等な通知送信のため、レートリミットは省略。
 
 /** 有効な通知イベント一覧 */
 const VALID_EVENTS: ReadonlySet<string> = new Set<string>([
@@ -70,17 +70,6 @@ export async function POST(request: Request) {
     if (!user) {
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
-
-    // レートリミットチェック
-    const now = Date.now();
-    const lastRequest = rateLimitMap.get(user.id);
-    if (lastRequest && now - lastRequest < RATE_LIMIT_WINDOW_MS) {
-      return NextResponse.json(
-        { error: 'リクエストが多すぎます。しばらく待ってから再試行してください' },
-        { status: 429 }
-      );
-    }
-    rateLimitMap.set(user.id, now);
 
     // org_id・grade取得
     const { data: member } = await supabase

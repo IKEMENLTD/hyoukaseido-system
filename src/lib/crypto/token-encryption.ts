@@ -12,7 +12,11 @@ function getKey(): Buffer {
   if (!key) {
     throw new Error('OAUTH_TOKEN_ENCRYPTION_KEY is not set');
   }
-  return Buffer.from(key, 'hex');
+  const buffer = Buffer.from(key, 'hex');
+  if (buffer.length !== 32) {
+    throw new Error('OAUTH_TOKEN_ENCRYPTION_KEY must be 64 hex characters (32 bytes)');
+  }
+  return buffer;
 }
 
 /**

@@ -5,7 +5,17 @@
 
 import crypto from 'crypto';
 
-const STATE_SECRET = process.env.OAUTH_STATE_SECRET || process.env.CRON_SECRET || '';
+/**
+ * OAuth State 署名用の秘密鍵を取得する。
+ * モジュールレベルではthrowしない（OAuth機能を使わないユーザーへの配慮）。
+ */
+function getStateSecret(): string {
+  const secret = process.env.OAUTH_STATE_SECRET || process.env.CRON_SECRET;
+  if (!secret) {
+    throw new Error('OAUTH_STATE_SECRET or CRON_SECRET must be set for OAuth security');
+  }
+  return secret;
+}
 
 /**
  * PKCE code_verifier を生成する (43-128文字のbase64url)
@@ -33,7 +43,7 @@ export function generateOAuthState(
   const timestamp = Date.now();
   const payload = `${memberId}:${provider}:${timestamp}:${codeVerifier}`;
   const signature = crypto
-    .createHmac('sha256', STATE_SECRET)
+    .createHmac('sha256', getStateSecret())
     .update(payload)
     .digest('hex');
   return Buffer.from(`${payload}:${signature}`).toString('base64url');
@@ -74,7 +84,7 @@ export function verifyOAuthState(state: string): VerifiedState | null {
     }
 
     const expected = crypto
-      .createHmac('sha256', STATE_SECRET)
+      .createHmac('sha256', getStateSecret())
       .update(payload)
       .digest('hex');
 
