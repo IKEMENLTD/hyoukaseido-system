@@ -1,9 +1,0 @@
-{
-  "crons": [
-    { "path": "/api/cron/eval-reminder", "schedule": "0 0 * * *" },
-    { "path": "/api/cron/okr-checkin", "schedule": "0 0 * * 1" },
-    { "path": "/api/cron/okr-review", "schedule": "0 0 * * *" },
-    { "path": "/api/cron/one-on-one-reminder", "schedule": "0 0 1 * *" },
-    { "path": "/api/cron/win-session-reminder", "schedule": "0 0 * * 5" }
-  ]
-}

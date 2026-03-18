@@ -55,6 +55,28 @@ const ALL_EVENT_KEYS = Object.keys(EVENT_LABELS);
 type ChannelType = 'slack' | 'line' | 'chatwork';
 
 // ---------------------------------------------------------------------------
+// チャンネルタイプ別のプレースホルダー・ヘルプ
+// ---------------------------------------------------------------------------
+
+const CHANNEL_NAME_PLACEHOLDERS: Record<ChannelType, string> = {
+  slack: '例: #general',
+  line: '例: 評価通知グループ',
+  chatwork: '例: 評価制度通知',
+};
+
+const WEBHOOK_URL_PLACEHOLDERS: Record<ChannelType, string> = {
+  slack: 'https://hooks.slack.com/services/...',
+  line: 'https://api.line.me/v2/bot/message/...',
+  chatwork: 'https://api.chatwork.com/v2/rooms/{ルームID}/messages',
+};
+
+const WEBHOOK_URL_HELP: Record<ChannelType, string> = {
+  slack: 'SlackアプリのIncoming Webhook URLを入力',
+  line: 'LINE Messaging APIのWebhook URLを入力',
+  chatwork: 'ChatWork APIのルームメッセージURL（https://api.chatwork.com/v2/rooms/ルームID/messages）を入力。APIトークンは環境変数 CHATWORK_API_TOKEN で設定',
+};
+
+// ---------------------------------------------------------------------------
 // フォーム状態
 // ---------------------------------------------------------------------------
 
@@ -151,6 +173,20 @@ export default function NotificationChannelManager({
   const validate = useCallback((): string | null => {
     if (!form.channelName.trim()) return 'チャンネル名を入力してください';
     if (!form.webhookUrl.trim()) return 'Webhook URLを入力してください';
+
+    const url = form.webhookUrl.trim();
+    if (!url.startsWith('https://')) return 'Webhook URLはhttps://で始まる必要があります';
+
+    if (form.channelType === 'slack' && !url.includes('hooks.slack.com/')) {
+      return 'Slack Webhook URLの形式が正しくありません（hooks.slack.com を含む必要があります）';
+    }
+    if (form.channelType === 'chatwork' && !url.includes('api.chatwork.com/v2/rooms/')) {
+      return 'ChatWork URLの形式が正しくありません（https://api.chatwork.com/v2/rooms/{ルームID}/messages）';
+    }
+    if (form.channelType === 'line' && !url.includes('api.line.me/')) {
+      return 'LINE URLの形式が正しくありません（api.line.me を含む必要があります）';
+    }
+
     if (form.selectedEvents.length === 0) return 'イベントを1つ以上選択してください';
     return null;
   }, [form]);
@@ -350,7 +386,7 @@ export default function NotificationChannelManager({
           onChange={(e) =>
             setForm((prev) => ({ ...prev, channelName: e.target.value }))
           }
-          placeholder="例: #general"
+          placeholder={CHANNEL_NAME_PLACEHOLDERS[form.channelType]}
           className="w-full bg-[#111111] border border-[#333333] text-[#e5e5e5] px-3 py-2 text-sm focus:border-[#3b82f6] focus:outline-none"
         />
       </div>
@@ -366,9 +402,12 @@ export default function NotificationChannelManager({
           onChange={(e) =>
             setForm((prev) => ({ ...prev, webhookUrl: e.target.value }))
           }
-          placeholder="https://hooks.slack.com/services/..."
+          placeholder={WEBHOOK_URL_PLACEHOLDERS[form.channelType]}
           className="w-full bg-[#111111] border border-[#333333] text-[#e5e5e5] px-3 py-2 text-sm focus:border-[#3b82f6] focus:outline-none"
         />
+        <p className="text-[10px] text-[#525252] mt-1">
+          {WEBHOOK_URL_HELP[form.channelType]}
+        </p>
       </div>
 
       {/* イベント選択 */}
