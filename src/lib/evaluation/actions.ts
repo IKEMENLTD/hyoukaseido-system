@@ -336,7 +336,9 @@ export async function submitSelfEvaluation(
         .eq('id', (evalPeriod as { eval_period_id: string }).eval_period_id)
         .single();
       const periodName = (period as { name: string } | null)?.name ?? '';
-      notifyEvalSubmitted(member.org_id, member.name, periodName, serviceClient).catch(() => {});
+      notifyEvalSubmitted(member.org_id, member.name, periodName, serviceClient).catch((err: unknown) => {
+        console.warn('通知送信失敗:', err instanceof Error ? err.message : err);
+      });
     }
   }
 
@@ -536,7 +538,9 @@ export async function submitManagerEvaluation(
     ]);
     const periodName = (periodRes.data as { name: string } | null)?.name ?? '';
     const memberName = (memberRes.data as { name: string } | null)?.name ?? '';
-    notifyManagerEvalRequest(member.org_id, memberName, periodName, serviceClient).catch(() => {});
+    notifyManagerEvalRequest(member.org_id, memberName, periodName, serviceClient).catch((err: unknown) => {
+      console.warn('通知送信失敗:', err instanceof Error ? err.message : err);
+    });
   }
 
   return { success: true };
@@ -661,7 +665,9 @@ export async function submitFeedback(
     .single();
   if (targetMember) {
     const { notifyFeedbackReady } = await import('@/lib/notifications/events');
-    notifyFeedbackReady(member.org_id, (targetMember as { name: string }).name, feedbackServiceClient).catch(() => {});
+    notifyFeedbackReady(member.org_id, (targetMember as { name: string }).name, feedbackServiceClient).catch((err: unknown) => {
+      console.warn('通知送信失敗:', err instanceof Error ? err.message : err);
+    });
   }
 
   return { success: true };
@@ -760,11 +766,17 @@ export async function advanceEvalPeriodStatus(
   // service roleクライアントを使用してnotification_channelsのRLSをバイパス
   const notifyServiceClient = createServiceRoleClient();
   if (nextStatus === 'self_eval') {
-    notifyEvalPeriodStart(member.org_id, periodData.name, notifyServiceClient).catch(() => {});
+    notifyEvalPeriodStart(member.org_id, periodData.name, notifyServiceClient).catch((err: unknown) => {
+      console.warn('通知送信失敗:', err instanceof Error ? err.message : err);
+    });
   } else if (nextStatus === 'calibration') {
-    notifyCalibrationStart(member.org_id, periodData.name, notifyServiceClient).catch(() => {});
+    notifyCalibrationStart(member.org_id, periodData.name, notifyServiceClient).catch((err: unknown) => {
+      console.warn('通知送信失敗:', err instanceof Error ? err.message : err);
+    });
   } else if (nextStatus === 'feedback') {
-    notifyCalibrationComplete(member.org_id, periodData.name, notifyServiceClient).catch(() => {});
+    notifyCalibrationComplete(member.org_id, periodData.name, notifyServiceClient).catch((err: unknown) => {
+      console.warn('通知送信失敗:', err instanceof Error ? err.message : err);
+    });
   }
 
   return { success: true };

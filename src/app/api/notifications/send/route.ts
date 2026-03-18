@@ -121,7 +121,7 @@ export async function POST(request: Request) {
     }
 
     // URLが指定されている場合、相対パスのみ許可（外部URLフィッシング防止）
-    if (body.url && (!body.url.startsWith('/') || body.url.startsWith('//'))) {
+    if (body.url && !/^\/[a-zA-Z0-9]/.test(body.url)) {
       return NextResponse.json(
         { error: '通知URLは相対パスのみ指定可能です' },
         { status: 400 }

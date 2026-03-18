@@ -323,7 +323,9 @@ export async function markBonusAsPaid(
         .single();
 
       const periodName = (periodRow as { name: string } | null)?.name ?? '';
-      notifyBonusConfirmed(member.org_id, periodName, bonusServiceClient).catch(() => {});
+      notifyBonusConfirmed(member.org_id, periodName, bonusServiceClient).catch((err: unknown) => {
+        console.warn('通知送信失敗:', err instanceof Error ? err.message : err);
+      });
     }
   } catch {
     // 通知取得失敗はメイン処理をブロックしない
