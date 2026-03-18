@@ -77,6 +77,112 @@ const WEBHOOK_URL_HELP: Record<ChannelType, string> = {
 };
 
 // ---------------------------------------------------------------------------
+// チャンネルタイプ別セットアップ手順
+// ---------------------------------------------------------------------------
+
+interface SetupStep {
+  title: string;
+  description: string;
+}
+
+interface SetupGuide {
+  label: string;
+  colorClass: string;
+  borderClass: string;
+  steps: SetupStep[];
+  notes: string[];
+}
+
+const SETUP_GUIDES: Record<ChannelType, SetupGuide> = {
+  slack: {
+    label: 'Slack',
+    colorClass: 'text-[#22d3ee]',
+    borderClass: 'border-[#22d3ee]',
+    steps: [
+      {
+        title: 'Slackアプリを作成',
+        description: 'https://api.slack.com/apps にアクセスし「Create New App」→「From scratch」を選択。ワークスペースを指定してアプリを作成',
+      },
+      {
+        title: 'Incoming Webhooksを有効化',
+        description: 'アプリ設定の「Incoming Webhooks」をONに切り替え、「Add New Webhook to Workspace」をクリック',
+      },
+      {
+        title: '通知先チャンネルを選択',
+        description: '通知を送信したいSlackチャンネル（例: #評価通知）を選択して「Allow」をクリック',
+      },
+      {
+        title: 'Webhook URLをコピー',
+        description: '生成されたURL（https://hooks.slack.com/services/T.../B.../...）をコピーし、下のフォームに貼り付け',
+      },
+    ],
+    notes: [
+      '1つのWebhook URLにつき1チャンネルへの送信',
+      '複数チャンネルに送信する場合はそれぞれWebhookを作成',
+    ],
+  },
+  line: {
+    label: 'LINE',
+    colorClass: 'text-[#22c55e]',
+    borderClass: 'border-[#22c55e]',
+    steps: [
+      {
+        title: 'LINE Developersにログイン',
+        description: 'https://developers.line.biz にアクセスし、LINEアカウントでログイン',
+      },
+      {
+        title: 'プロバイダーとチャネルを作成',
+        description: '「プロバイダー作成」→「Messaging APIチャネル」を新規作成。チャネル名は「評価制度通知」等',
+      },
+      {
+        title: 'チャネルアクセストークンを発行',
+        description: 'チャネル設定の「Messaging API設定」タブ →「チャネルアクセストークン（長期）」を発行',
+      },
+      {
+        title: 'Webhook URLを設定',
+        description: 'Messaging API設定 → Webhook URLに https://api.line.me/v2/bot/message/push を使用。アクセストークンは環境変数 LINE_MESSAGING_CHANNEL_ACCESS_TOKEN に設定',
+      },
+      {
+        title: '友だち追加',
+        description: '通知を受け取るユーザーがLINE公式アカウントを友だち追加する必要あり。QRコードは「Messaging API設定」で確認可能',
+      },
+    ],
+    notes: [
+      'LINE通知はLINE公式アカウントからのメッセージとして送信される',
+      '無料プランは月1,000通まで',
+    ],
+  },
+  chatwork: {
+    label: 'ChatWork',
+    colorClass: 'text-[#e74c3c]',
+    borderClass: 'border-[#e74c3c]',
+    steps: [
+      {
+        title: 'ChatWork APIトークンを取得',
+        description: 'ChatWorkにログイン → 右上のアイコン →「サービス連携」→「API」→「APIトークン」でトークンを取得。このトークンを環境変数 CHATWORK_API_TOKEN に設定',
+      },
+      {
+        title: '通知先ルームIDを確認',
+        description: 'ChatWorkで通知を送りたいチャットルームを開く。URLの「#!rid」以降の数字がルームID（例: https://www.chatwork.com/#!rid123456789 → ルームIDは 123456789）',
+      },
+      {
+        title: 'Webhook URLを組み立て',
+        description: 'https://api.chatwork.com/v2/rooms/{ルームID}/messages の形式でURLを作成（例: https://api.chatwork.com/v2/rooms/123456789/messages）',
+      },
+      {
+        title: 'フォームに入力',
+        description: 'チャンネル名に任意の名前、Webhook URLに上記URLを入力し、対象イベントを選択して保存',
+      },
+    ],
+    notes: [
+      'APIトークンはメッセージ送信者のアカウントに紐づく',
+      'ルームの「メンバー」であるアカウントのトークンが必要',
+      '個人DM通知を使う場合はOAuth連携も必要（プロフィール設定から連携）',
+    ],
+  },
+};
+
+// ---------------------------------------------------------------------------
 // フォーム状態
 // ---------------------------------------------------------------------------
 
@@ -96,6 +202,76 @@ const INITIAL_FORM: ChannelFormState = {
 
 // ---------------------------------------------------------------------------
 // コンポーネント
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// セットアップガイドパネル（フォーム内 & 単体表示兼用）
+// ---------------------------------------------------------------------------
+
+function SetupGuidePanel({ type }: { type: ChannelType }) {
+  const [expanded, setExpanded] = useState(false);
+  const guide = SETUP_GUIDES[type];
+
+  return (
+    <div className={`border ${guide.borderClass}/30 bg-[#111111]`}>
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="w-full px-4 py-3 flex items-center justify-between text-left"
+      >
+        <span className={`text-xs font-bold ${guide.colorClass}`}>
+          {guide.label} セットアップ手順
+        </span>
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 12 12"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="square"
+          className={`text-[#737373] transition-transform ${expanded ? 'rotate-180' : ''}`}
+        >
+          <polyline points="2,4 6,8 10,4" />
+        </svg>
+      </button>
+
+      {expanded && (
+        <div className="px-4 pb-4 space-y-3">
+          {guide.steps.map((step, i) => (
+            <div key={i} className="flex gap-3">
+              <span className={`text-[10px] font-bold ${guide.colorClass} mt-0.5 shrink-0`}>
+                {String(i + 1).padStart(2, '0')}
+              </span>
+              <div>
+                <p className="text-xs font-medium text-[#e5e5e5]">{step.title}</p>
+                <p className="text-[11px] text-[#737373] mt-0.5 leading-relaxed">
+                  {step.description}
+                </p>
+              </div>
+            </div>
+          ))}
+
+          {guide.notes.length > 0 && (
+            <div className="border-t border-[#1a1a1a] pt-3 mt-3">
+              <p className="text-[10px] text-[#525252] uppercase tracking-wider mb-2">
+                注意事項
+              </p>
+              {guide.notes.map((note, i) => (
+                <p key={i} className="text-[11px] text-[#525252] leading-relaxed">
+                  - {note}
+                </p>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// メインコンポーネント
 // ---------------------------------------------------------------------------
 
 export default function NotificationChannelManager({
@@ -374,6 +550,9 @@ export default function NotificationChannelManager({
           </div>
         </div>
       )}
+
+      {/* セットアップガイド (タイプ連動) */}
+      {mode === 'add' && <SetupGuidePanel type={form.channelType} />}
 
       {/* チャンネル名 */}
       <div>
@@ -658,6 +837,20 @@ export default function NotificationChannelManager({
               </div>
             ))}
           </div>
+        </div>
+      </div>
+
+      {/* 各チャンネルのセットアップガイド */}
+      <div className="border border-[#1a1a1a] bg-[#0a0a0a]">
+        <div className="border-b border-[#1a1a1a] px-4 py-3">
+          <h3 className="text-sm font-medium text-[#a3a3a3] uppercase tracking-wider">
+            チャンネル追加ガイド
+          </h3>
+        </div>
+        <div className="p-4 space-y-2">
+          {(Object.keys(SETUP_GUIDES) as ChannelType[]).map((type) => (
+            <SetupGuidePanel key={type} type={type} />
+          ))}
         </div>
       </div>
     </div>
