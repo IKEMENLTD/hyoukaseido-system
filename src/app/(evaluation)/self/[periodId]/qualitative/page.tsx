@@ -47,18 +47,19 @@ export default async function SelfQualitativePage(props: SelfQualitativePageProp
   const supabase = await createClient();
 
   // メンバーの事業部での職種を取得
-  const { data: divMember } = await supabase
+  const { data: divMember, error: divMemberErr } = await supabase
     .from('division_members')
     .select('role')
     .eq('member_id', member.id)
     .eq('division_id', evaluation.division_id)
     .limit(1)
     .single();
+  if (divMemberErr) console.error('[DB] division_members 取得エラー:', divMemberErr);
 
   const role = (divMember as { role: string } | null)?.role ?? '';
 
   // 定性評価テンプレートを取得
-  const { data: template } = await supabase
+  const { data: template, error: templateErr } = await supabase
     .from('kpi_templates')
     .select('id')
     .eq('division_id', evaluation.division_id)
@@ -67,6 +68,7 @@ export default async function SelfQualitativePage(props: SelfQualitativePageProp
     .eq('is_active', true)
     .limit(1)
     .single();
+  if (templateErr) console.error('[DB] kpi_templates 取得エラー:', templateErr);
 
   // 行動項目を取得
   let behaviorItems: Array<{
@@ -78,11 +80,12 @@ export default async function SelfQualitativePage(props: SelfQualitativePageProp
   }> = [];
 
   if (template) {
-    const { data: items } = await supabase
+    const { data: items, error: itemsErr } = await supabase
       .from('behavior_items')
       .select('id, name, criteria, max_score, sort_order')
       .eq('template_id', (template as { id: string }).id)
       .order('sort_order', { ascending: true });
+    if (itemsErr) console.error('[DB] behavior_items 取得エラー:', itemsErr);
 
     if (items) {
       behaviorItems = items as typeof behaviorItems;
@@ -90,10 +93,11 @@ export default async function SelfQualitativePage(props: SelfQualitativePageProp
   }
 
   // 既存の eval_behavior_scores を取得
-  const { data: existingScores } = await supabase
+  const { data: existingScores, error: existingScoresErr } = await supabase
     .from('eval_behavior_scores')
     .select('behavior_item_id, self_score, comment')
     .eq('evaluation_id', evaluation.id);
+  if (existingScoresErr) console.error('[DB] eval_behavior_scores 取得エラー:', existingScoresErr);
 
   const scores = (existingScores ?? []) as Array<{
     behavior_item_id: string;

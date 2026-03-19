@@ -112,15 +112,17 @@ export async function getDivisionPhases(
   const calendarYear = quarter === 4 ? fiscalYear + 1 : fiscalYear;
 
   const supabase = await createClient();
-  const { data: financials } = await supabase
+  const { data: financials, error: financialsErr } = await supabase
     .from('division_financials')
     .select('division_id, revenue, cost, operating_cost')
     .eq('fiscal_year', calendarYear)
     .in('month', months);
+  if (financialsErr) console.error('[DB] division_financials 取得エラー:', financialsErr);
 
   if (!financials || financials.length === 0) {
     // データなし → 全事業部にデフォルト返却
-    const { data: divisions } = await supabase.from('divisions').select('id, phase');
+    const { data: divisions, error: divisionsErr } = await supabase.from('divisions').select('id, phase');
+    if (divisionsErr) console.error('[DB] divisions 取得エラー:', divisionsErr);
     return ((divisions ?? []) as Array<{ id: string; phase: string }>).map((d) => ({
       divisionId: d.id,
       suggestedPhase: d.phase as 'profitable' | 'investing',
@@ -144,7 +146,8 @@ export async function getDivisionPhases(
   }
 
   // 全事業部を取得し、データがある事業部は実績ベース、ない事業部は手動設定のまま
-  const { data: allDivisions } = await supabase.from('divisions').select('id, phase');
+  const { data: allDivisions, error: allDivisionsErr } = await supabase.from('divisions').select('id, phase');
+  if (allDivisionsErr) console.error('[DB] divisions 取得エラー:', allDivisionsErr);
   return ((allDivisions ?? []) as Array<{ id: string; phase: string }>).map((d) => {
     const netProfit = aggregated.get(d.id);
     if (netProfit !== undefined) {

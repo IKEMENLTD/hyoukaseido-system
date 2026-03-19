@@ -96,11 +96,12 @@ export default function WinSessionClient({
       // 今日のセッションを検索、なければ作成
       let sessionId: string;
 
-      const { data: existingSession } = await supabase
+      const { data: existingSession, error: existingSessionErr } = await supabase
         .from('win_sessions')
         .select('id')
         .eq('session_date', today)
         .single();
+      if (existingSessionErr) console.error('[DB] win_sessions 取得エラー:', existingSessionErr);
 
       if (existingSession) {
         sessionId = existingSession.id as string;
@@ -147,7 +148,7 @@ export default function WinSessionClient({
       }
 
       // 成功: セッション一覧をリフレッシュ
-      const { data: refreshedRaw } = await supabase
+      const { data: refreshedRaw, error: refreshedRawErr } = await supabase
         .from('win_sessions')
         .select(`
           id, session_date,
@@ -160,6 +161,7 @@ export default function WinSessionClient({
         `)
         .order('session_date', { ascending: false })
         .limit(10);
+      if (refreshedRawErr) console.error('[DB] win_sessions 取得エラー:', refreshedRawErr);
 
       if (refreshedRaw) {
         const refreshed = (

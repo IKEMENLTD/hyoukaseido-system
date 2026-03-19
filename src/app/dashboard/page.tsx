@@ -206,6 +206,13 @@ export default async function DashboardPage() {
       .select('id, route_id, status, gross_profit, toss_bonus, receive_bonus, crosssell_routes(from_division_id, to_division_id)'),
   ]);
 
+  if (divisionsResult.error) console.error('[DB] divisions 取得エラー:', divisionsResult.error);
+  if (divisionMembersResult.error) console.error('[DB] division_members 取得エラー:', divisionMembersResult.error);
+  if (membersResult.error) console.error('[DB] members 取得エラー:', membersResult.error);
+  if (evalPeriodsResult.error) console.error('[DB] eval_periods 取得エラー:', evalPeriodsResult.error);
+  if (evaluationsResult.error) console.error('[DB] evaluations 取得エラー:', evaluationsResult.error);
+  if (tossesResult.error) console.error('[DB] crosssell_tosses 取得エラー:', tossesResult.error);
+
   // -- null安全: エラー時は空配列にフォールバック --
   const divisions = (divisionsResult.data ?? []) as DivisionRow[];
   const divisionMembers = (divisionMembersResult.data ?? []) as DivisionMemberRow[];
@@ -321,11 +328,12 @@ export default async function DashboardPage() {
   const now = new Date();
   const roiYear = now.getFullYear();
   const roiMonth = now.getMonth() + 1;
-  const { data: financialRows } = await supabase
+  const { data: financialRows, error: financialRowsErr } = await supabase
     .from('division_financials')
     .select('revenue')
     .eq('fiscal_year', roiYear)
     .eq('month', roiMonth > 1 ? roiMonth - 1 : 12); // 前月実績
+  if (financialRowsErr) console.error('[DB] division_financials 取得エラー:', financialRowsErr);
 
   const monthlyRevenue = financialRows && financialRows.length > 0
     ? (financialRows as Array<{ revenue: number }>).reduce((sum, r) => sum + r.revenue, 0)

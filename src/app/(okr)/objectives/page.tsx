@@ -113,7 +113,7 @@ export default async function ObjectivesPage() {
   }
 
   // その期間のObjectives + Key Results + member名を取得
-  const { data: rawObjectives } = await supabase
+  const { data: rawObjectives, error: rawObjectivesErr } = await supabase
     .from('okr_objectives')
     .select(`
       id, title, level, status,
@@ -123,12 +123,14 @@ export default async function ObjectivesPage() {
     .eq('okr_period_id', okrPeriod.id)
     .order('level')
     .returns<RawObjective[]>();
+  if (rawObjectivesErr) console.error('[DB] okr_objectives 取得エラー:', rawObjectivesErr);
 
   // 事業部一覧を取得（フォームで使用）
-  const { data: divisions } = await supabase
+  const { data: divisions, error: divisionsErr } = await supabase
     .from('divisions')
     .select('id, name')
     .order('name');
+  if (divisionsErr) console.error('[DB] divisions 取得エラー:', divisionsErr);
 
   const typedDivisions = (divisions ?? []) as Array<{ id: string; name: string }>;
 

@@ -49,11 +49,12 @@ export default async function AdminNotificationsPage() {
   }
 
   const supabase = await createClient();
-  const { data: rawChannels } = await supabase
+  const { data: rawChannels, error: rawChannelsErr } = await supabase
     .from('notification_channels')
     .select('id, type, channel_name, webhook_url, is_active, events, last_sent_at')
     .eq('org_id', member.org_id)
     .order('created_at', { ascending: false });
+  if (rawChannelsErr) console.error('[DB] notification_channels 取得エラー:', rawChannelsErr);
 
   const channels: DisplayChannel[] = ((rawChannels ?? []) as unknown as NotificationChannelRow[]).map(
     (row) => ({

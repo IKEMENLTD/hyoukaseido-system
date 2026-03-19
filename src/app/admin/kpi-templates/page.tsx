@@ -84,6 +84,7 @@ export default async function AdminKpiTemplatesPage() {
 
   const { data: templates, error } = templatesResult;
   const { data: divisions } = divisionsResult;
+  if (divisionsResult.error) console.error('[DB] divisions 取得エラー:', divisionsResult.error);
 
   const templateList: KpiTemplateRow[] = (templates as KpiTemplateRow[] | null) ?? [];
 

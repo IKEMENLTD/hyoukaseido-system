@@ -35,7 +35,7 @@ export default async function CheckinPage() {
 
   const supabase = await createClient();
 
-  const { data: keyResultRows } = await supabase
+  const { data: keyResultRows, error: keyResultRowsErr } = await supabase
     .from('okr_key_results')
     .select(`
       id, title, current_value, target_value, unit,
@@ -43,6 +43,7 @@ export default async function CheckinPage() {
     `)
     .eq('okr_objectives.member_id', member.id)
     .eq('okr_objectives.status', 'active');
+  if (keyResultRowsErr) console.error('[DB] okr_key_results 取得エラー:', keyResultRowsErr);
 
   // snake_case → camelCase変換
   const keyResults = ((keyResultRows ?? []) as unknown as OkrKeyResultRow[]).map(

@@ -85,16 +85,18 @@ export default async function SummaryPage(props: SummaryPageProps) {
   // G3の場合、事業部長として対象メンバーの事業部に所属しているか確認
   // G4/G5は全評価にアクセス可能
   if (currentMember.grade === 'G3') {
-    const { data: managerDivisions } = await supabase
+    const { data: managerDivisions, error: managerDivisionsErr } = await supabase
       .from('division_members')
       .select('division_id')
       .eq('member_id', currentMember.id)
       .eq('is_head', true);
+    if (managerDivisionsErr) console.error('[DB] division_members 取得エラー:', managerDivisionsErr);
 
-    const { data: targetDivisions } = await supabase
+    const { data: targetDivisions, error: targetDivisionsErr } = await supabase
       .from('division_members')
       .select('division_id')
       .eq('member_id', memberId);
+    if (targetDivisionsErr) console.error('[DB] division_members 取得エラー:', targetDivisionsErr);
 
     const managerDivIds = new Set((managerDivisions ?? []).map((d: { division_id: string }) => d.division_id));
     const hasAccess = (targetDivisions ?? []).some((d: { division_id: string }) => managerDivIds.has(d.division_id));
@@ -120,11 +122,12 @@ export default async function SummaryPage(props: SummaryPageProps) {
   }
 
   // 対象メンバー情報を取得
-  const { data: targetMember } = await supabase
+  const { data: targetMember, error: targetMemberErr } = await supabase
     .from('members')
     .select('id, name, grade')
     .eq('id', memberId)
     .single();
+  if (targetMemberErr) console.error('[DB] members 取得エラー:', targetMemberErr);
 
   if (!targetMember) {
     return (
@@ -142,7 +145,7 @@ export default async function SummaryPage(props: SummaryPageProps) {
   const member = targetMember as { id: string; name: string; grade: string };
 
   // 対象メンバーの評価レコードを取得
-  const { data: evaluation } = await supabase
+  const { data: evaluation, error: evaluationErr } = await supabase
     .from('evaluations')
     .select(
       'id, member_id, division_id, grade_at_eval, phase_at_eval, ' +
@@ -154,6 +157,7 @@ export default async function SummaryPage(props: SummaryPageProps) {
     .eq('eval_period_id', periodId)
     .limit(1)
     .single();
+  if (evaluationErr) console.error('[DB] evaluations 取得エラー:', evaluationErr);
 
   if (!evaluation) {
     return (
@@ -171,20 +175,22 @@ export default async function SummaryPage(props: SummaryPageProps) {
   const evalData = evaluation as unknown as EvaluationData;
 
   // 評価期間情報を取得
-  const { data: period } = await supabase
+  const { data: period, error: periodErr } = await supabase
     .from('eval_periods')
     .select('name')
     .eq('id', periodId)
     .single();
+  if (periodErr) console.error('[DB] eval_periods 取得エラー:', periodErr);
 
   const periodName = (period as { name: string } | null)?.name ?? '不明な評価期間';
 
   // 事業部名を取得
-  const { data: division } = await supabase
+  const { data: division, error: divisionErr } = await supabase
     .from('divisions')
     .select('name')
     .eq('id', evalData.division_id)
     .single();
+  if (divisionErr) console.error('[DB] divisions 取得エラー:', divisionErr);
 
   const divisionName = (division as { name: string } | null)?.name ?? '不明';
 

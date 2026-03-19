@@ -119,11 +119,12 @@ export default async function PeriodPage(props: PeriodPageProps) {
   const supabase = await createClient();
 
   // ---- 部門長権限チェック ----
-  const { data: headDivisions } = await supabase
+  const { data: headDivisions, error: headDivisionsErr } = await supabase
     .from('division_members')
     .select('division_id')
     .eq('member_id', member.id)
     .eq('is_head', true);
+  if (headDivisionsErr) console.error('[DB] division_members 取得エラー:', headDivisionsErr);
 
   const headDivisionIds = (headDivisions ?? []).map(
     (d) => (d as { division_id: string }).division_id
@@ -140,11 +141,12 @@ export default async function PeriodPage(props: PeriodPageProps) {
   }
 
   // ---- 評価期間の取得 ----
-  const { data: periodData } = await supabase
+  const { data: periodData, error: periodDataErr } = await supabase
     .from('eval_periods')
     .select('id, name, half, fiscal_year, start_date, end_date, status')
     .eq('id', periodId)
     .single();
+  if (periodDataErr) console.error('[DB] eval_periods 取得エラー:', periodDataErr);
 
   if (!periodData) {
     return (
@@ -172,10 +174,11 @@ export default async function PeriodPage(props: PeriodPageProps) {
     managedDivisionIds = headDivisionIds;
   } else {
     // G3+ だが is_head ではない場合、所属する全事業部を取得
-    const { data: memberDivisions } = await supabase
+    const { data: memberDivisions, error: memberDivisionsErr } = await supabase
       .from('division_members')
       .select('division_id')
       .eq('member_id', member.id);
+    if (memberDivisionsErr) console.error('[DB] division_members 取得エラー:', memberDivisionsErr);
 
     managedDivisionIds = (memberDivisions ?? []).map(
       (d) => (d as { division_id: string }).division_id
@@ -192,10 +195,11 @@ export default async function PeriodPage(props: PeriodPageProps) {
   }
 
   // ---- 事業部名の取得 ----
-  const { data: divisionsData } = await supabase
+  const { data: divisionsData, error: divisionsDataErr } = await supabase
     .from('divisions')
     .select('id, name')
     .in('id', managedDivisionIds);
+  if (divisionsDataErr) console.error('[DB] divisions 取得エラー:', divisionsDataErr);
 
   const divisionNameMap = new Map<string, string>();
   for (const div of (divisionsData ?? []) as Array<{ id: string; name: string }>) {
@@ -203,11 +207,12 @@ export default async function PeriodPage(props: PeriodPageProps) {
   }
 
   // ---- 評価データの取得 ----
-  const { data: evaluationsData } = await supabase
+  const { data: evaluationsData, error: evaluationsDataErr } = await supabase
     .from('evaluations')
     .select('id, member_id, division_id, grade_at_eval, status, rank, total_score')
     .eq('eval_period_id', periodId)
     .in('division_id', managedDivisionIds);
+  if (evaluationsDataErr) console.error('[DB] evaluations 取得エラー:', evaluationsDataErr);
 
   const evaluations = (evaluationsData ?? []) as Array<{
     id: string;
@@ -224,10 +229,11 @@ export default async function PeriodPage(props: PeriodPageProps) {
   const memberNameMap = new Map<string, string>();
 
   if (memberIds.length > 0) {
-    const { data: membersData } = await supabase
+    const { data: membersData, error: membersDataErr } = await supabase
       .from('members')
       .select('id, name')
       .in('id', memberIds);
+    if (membersDataErr) console.error('[DB] members 取得エラー:', membersDataErr);
 
     for (const m of (membersData ?? []) as Array<{ id: string; name: string }>) {
       memberNameMap.set(m.id, m.name);

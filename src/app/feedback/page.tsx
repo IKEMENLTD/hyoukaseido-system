@@ -43,7 +43,7 @@ export default async function FeedbackPage() {
 
   const supabase = await createClient();
 
-  const { data: rawTargets } = await supabase
+  const { data: rawTargets, error: rawTargetsErr } = await supabase
     .from('evaluations')
     .select(`
       id, total_score, rank, status, evaluator_comment, next_actions, updated_at,
@@ -53,6 +53,7 @@ export default async function FeedbackPage() {
     .eq('evaluator_id', member.id)
     .in('status', ['calibrated', 'feedback_done'])
     .order('updated_at', { ascending: false });
+  if (rawTargetsErr) console.error('[DB] evaluations 取得エラー:', rawTargetsErr);
 
   const targets: FeedbackTarget[] = ((rawTargets ?? []) as unknown as FeedbackRow[]).map(
     (row) => ({

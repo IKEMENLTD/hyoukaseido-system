@@ -46,11 +46,12 @@ export default async function SelfValuesPage(props: SelfValuesPageProps) {
   const supabase = await createClient();
 
   // バリュー項目はorg単位で共通
-  const { data: items } = await supabase
+  const { data: items, error: itemsErr } = await supabase
     .from('value_items')
     .select('id, name, definition, axis, max_score, sort_order')
     .eq('org_id', member.org_id)
     .order('sort_order', { ascending: true });
+  if (itemsErr) console.error('[DB] value_items 取得エラー:', itemsErr);
 
   const valueItems = (items ?? []) as Array<{
     id: string;
@@ -62,10 +63,11 @@ export default async function SelfValuesPage(props: SelfValuesPageProps) {
   }>;
 
   // 既存の eval_value_scores を取得
-  const { data: existingScores } = await supabase
+  const { data: existingScores, error: existingScoresErr } = await supabase
     .from('eval_value_scores')
     .select('value_item_id, self_score, evidence')
     .eq('evaluation_id', evaluation.id);
+  if (existingScoresErr) console.error('[DB] eval_value_scores 取得エラー:', existingScoresErr);
 
   const scores = (existingScores ?? []) as Array<{
     value_item_id: string;

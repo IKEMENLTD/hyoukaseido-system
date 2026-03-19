@@ -72,17 +72,19 @@ export default async function AdminMembersPage() {
     .order('name');
 
   // 事業部一覧取得
-  const { data: divisions } = await supabase
+  const { data: divisions, error: divisionsErr } = await supabase
     .from('divisions')
     .select('id, name')
     .order('name');
+  if (divisionsErr) console.error('[DB] divisions 取得エラー:', divisionsErr);
 
   // org_id取得 (最初の組織)
-  const { data: orgs } = await supabase
+  const { data: orgs, error: orgsErr } = await supabase
     .from('organizations')
     .select('id')
     .limit(1)
     .single();
+  if (orgsErr) console.error('[DB] organizations 取得エラー:', orgsErr);
 
   const memberList: MemberRow[] = (members as MemberRow[] | null) ?? [];
   const divisionList: DivisionOption[] = (divisions as DivisionOption[] | null) ?? [];

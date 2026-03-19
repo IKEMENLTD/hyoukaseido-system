@@ -78,7 +78,7 @@ export default async function ReviewPage() {
   const period = okrPeriod as OkrPeriodRow;
 
   // 自分のObjectives + Key Resultsを取得
-  const { data: objectivesData } = await supabase
+  const { data: objectivesData, error: objectivesDataErr } = await supabase
     .from('okr_objectives')
     .select(`
       id, title, level,
@@ -86,6 +86,7 @@ export default async function ReviewPage() {
     `)
     .eq('okr_period_id', period.id)
     .eq('member_id', member.id);
+  if (objectivesDataErr) console.error('[DB] okr_objectives 取得エラー:', objectivesDataErr);
 
   const objectives = ((objectivesData ?? []) as ObjectiveRow[]).map((obj) => ({
     id: obj.id,

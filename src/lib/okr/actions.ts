@@ -33,11 +33,12 @@ export async function updateObjectiveTitle(
   const supabase = await createClient();
 
   // 所有者チェック: 自分のObjective or G3+
-  const { data: objective } = await supabase
+  const { data: objective, error: objectiveErr } = await supabase
     .from('okr_objectives')
     .select('member_id')
     .eq('id', objectiveId)
     .single();
+  if (objectiveErr) console.error('[DB] okr_objectives 取得エラー:', objectiveErr);
 
   if (!objective) return { success: false, error: 'OKRが見つかりません' };
 
@@ -76,10 +77,11 @@ export async function deleteObjective(
   const supabase = await createClient();
 
   // 先にKRの子要素(checkins)を削除、次にKR、最後にObjective
-  const { data: keyResults } = await supabase
+  const { data: keyResults, error: keyResultsErr } = await supabase
     .from('okr_key_results')
     .select('id')
     .eq('objective_id', objectiveId);
+  if (keyResultsErr) console.error('[DB] okr_key_results 取得エラー:', keyResultsErr);
 
   if (keyResults && keyResults.length > 0) {
     const krIds = (keyResults as Array<{ id: string }>).map((kr) => kr.id);
@@ -130,11 +132,12 @@ export async function updateOneOnOne(
   const supabase = await createClient();
 
   // 所有者チェック
-  const { data: record } = await supabase
+  const { data: record, error: recordErr } = await supabase
     .from('one_on_ones')
     .select('manager_id')
     .eq('id', recordId)
     .single();
+  if (recordErr) console.error('[DB] one_on_ones 取得エラー:', recordErr);
 
   if (!record) return { success: false, error: '記録が見つかりません' };
 
@@ -201,11 +204,12 @@ export async function toggleMilestoneComplete(
 
   const supabase = await createClient();
 
-  const { data: plan } = await supabase
+  const { data: plan, error: planErr } = await supabase
     .from('improvement_plans')
     .select('milestones, manager_id')
     .eq('id', planId)
     .single();
+  if (planErr) console.error('[DB] improvement_plans 取得エラー:', planErr);
 
   if (!plan) return { success: false, error: '改善計画が見つかりません' };
 

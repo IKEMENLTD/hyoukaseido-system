@@ -105,7 +105,7 @@ export default async function BonusPage() {
 
   // Supabaseからボーナスデータを取得
   const supabase = await createClient();
-  const { data: rawBonuses } = await supabase
+  const { data: rawBonuses, error: rawBonusesErr } = await supabase
     .from('quarterly_bonuses')
     .select(`
       id, bonus_type, amount, calculation_basis, status, created_at,
@@ -114,6 +114,7 @@ export default async function BonusPage() {
     `)
     .eq('member_id', member.id)
     .order('created_at', { ascending: false });
+  if (rawBonusesErr) console.error('[DB] quarterly_bonuses 取得エラー:', rawBonusesErr);
 
   const bonuses: DisplayBonus[] = (rawBonuses as QuarterlyBonusRow[] | null)?.map(toDisplayBonus) ?? [];
 

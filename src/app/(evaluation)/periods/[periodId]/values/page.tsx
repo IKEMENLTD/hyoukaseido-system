@@ -62,11 +62,12 @@ export default async function ValuesPage(props: ValuesPageProps) {
   const supabase = await createClient();
 
   // 対象メンバー情報を取得
-  const { data: targetMember } = await supabase
+  const { data: targetMember, error: targetMemberErr } = await supabase
     .from('members')
     .select('id, name, grade')
     .eq('id', memberId)
     .single();
+  if (targetMemberErr) console.error('[DB] members 取得エラー:', targetMemberErr);
 
   if (!targetMember) {
     return (
@@ -84,13 +85,14 @@ export default async function ValuesPage(props: ValuesPageProps) {
   const member = targetMember as { id: string; name: string; grade: string };
 
   // 対象メンバーの評価レコードを取得
-  const { data: evaluation } = await supabase
+  const { data: evaluation, error: evaluationErr } = await supabase
     .from('evaluations')
     .select('id, status')
     .eq('member_id', memberId)
     .eq('eval_period_id', periodId)
     .limit(1)
     .single();
+  if (evaluationErr) console.error('[DB] evaluations 取得エラー:', evaluationErr);
 
   if (!evaluation) {
     return (
@@ -108,11 +110,12 @@ export default async function ValuesPage(props: ValuesPageProps) {
   const evalRecord = evaluation as { id: string; status: string };
 
   // バリュー項目を取得 (org単位で共通)
-  const { data: items } = await supabase
+  const { data: items, error: itemsErr } = await supabase
     .from('value_items')
     .select('id, name, definition, axis, max_score, sort_order')
     .eq('org_id', currentMember.org_id)
     .order('sort_order', { ascending: true });
+  if (itemsErr) console.error('[DB] value_items 取得エラー:', itemsErr);
 
   const valueItems = (items ?? []) as Array<{
     id: string;
@@ -124,10 +127,11 @@ export default async function ValuesPage(props: ValuesPageProps) {
   }>;
 
   // 既存の eval_value_scores を取得 (自己評価 + 上長評価両方)
-  const { data: existingScores } = await supabase
+  const { data: existingScores, error: existingScoresErr } = await supabase
     .from('eval_value_scores')
     .select('value_item_id, self_score, manager_score, evidence')
     .eq('evaluation_id', evalRecord.id);
+  if (existingScoresErr) console.error('[DB] eval_value_scores 取得エラー:', existingScoresErr);
 
   const scores = (existingScores ?? []) as Array<{
     value_item_id: string;

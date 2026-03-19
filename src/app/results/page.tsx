@@ -110,7 +110,7 @@ export default async function ResultsPage() {
   const supabase = await createClient();
 
   // -- 最新の確定済み評価を取得 --
-  const { data: evaluationData } = await supabase
+  const { data: evaluationData, error: evaluationDataErr } = await supabase
     .from('evaluations')
     .select(`
       id, quantitative_score, qualitative_score, value_score, total_score,
@@ -124,6 +124,7 @@ export default async function ResultsPage() {
     .order('created_at', { ascending: false })
     .limit(1)
     .single();
+  if (evaluationDataErr) console.error('[DB] evaluations 取得エラー:', evaluationDataErr);
 
   const evaluation = evaluationData as EvaluationRow | null;
 
@@ -164,6 +165,10 @@ export default async function ResultsPage() {
       `)
       .eq('evaluation_id', evaluation.id),
   ]);
+
+  if (kpiResult.error) console.error('[DB] eval_kpi_scores 取得エラー:', kpiResult.error);
+  if (behaviorResult.error) console.error('[DB] eval_behavior_scores 取得エラー:', behaviorResult.error);
+  if (valueResult.error) console.error('[DB] eval_value_scores 取得エラー:', valueResult.error);
 
   const kpiScores = (kpiResult.data ?? []) as KpiScoreRow[];
   const behaviorScores = (behaviorResult.data ?? []) as BehaviorScoreRow[];

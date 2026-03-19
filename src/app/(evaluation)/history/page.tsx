@@ -71,7 +71,7 @@ export default async function HistoryPage() {
 
   const supabase = await createClient();
 
-  const { data: rawEvaluations } = await supabase
+  const { data: rawEvaluations, error: rawEvaluationsErr } = await supabase
     .from('evaluations')
     .select(`
       id,
@@ -93,12 +93,13 @@ export default async function HistoryPage() {
     `)
     .eq('member_id', member.id)
     .order('created_at', { ascending: false });
+  if (rawEvaluationsErr) console.error('[DB] evaluations 取得エラー:', rawEvaluationsErr);
 
   const evaluations = (rawEvaluations ?? []) as unknown as EvaluationHistoryRow[];
 
   // 現在の評価期間を取得（アクティブなステータスのもの）
   const activeStatuses: EvalPeriodStatus[] = ['self_eval', 'manager_eval', 'calibration', 'feedback'];
-  const { data: currentPeriod } = await supabase
+  const { data: currentPeriod, error: currentPeriodErr } = await supabase
     .from('eval_periods')
     .select('id, name, status, half, fiscal_year')
     .eq('org_id', member.org_id)
@@ -106,6 +107,7 @@ export default async function HistoryPage() {
     .order('start_date', { ascending: false })
     .limit(1)
     .single();
+  if (currentPeriodErr) console.error('[DB] eval_periods 取得エラー:', currentPeriodErr);
 
   // サマリー計算
   const scoredEvaluations = evaluations.filter(

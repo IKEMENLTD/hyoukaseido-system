@@ -89,7 +89,7 @@ export default async function OneOnOneHistoryPage({ searchParams }: PageProps) {
   const offset = (safePage - 1) * PAGE_SIZE;
 
   // ページ分のデータを取得
-  const { data: rawRecords } = await supabase
+  const { data: rawRecords, error: rawRecordsErr } = await supabase
     .from('one_on_ones')
     .select(`
       id, meeting_date, meeting_type, okr_progress, blockers, action_items, notes, manager_id,
@@ -99,6 +99,7 @@ export default async function OneOnOneHistoryPage({ searchParams }: PageProps) {
     .or(`member_id.eq.${member.id},manager_id.eq.${member.id}`)
     .order('meeting_date', { ascending: false })
     .range(offset, offset + PAGE_SIZE - 1);
+  if (rawRecordsErr) console.error('[DB] one_on_ones 取得エラー:', rawRecordsErr);
 
   const records: OneOnOneRecord[] = ((rawRecords ?? []) as unknown as OneOnOneRow[]).map(
     (row) => ({

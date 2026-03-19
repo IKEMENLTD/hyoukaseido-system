@@ -91,13 +91,14 @@ export default async function ManagerQualitativePage(props: QualitativePageProps
   const supabase = await createClient();
 
   // 対象メンバーの評価レコードを取得
-  const { data: evaluation } = await supabase
+  const { data: evaluation, error: evaluationErr } = await supabase
     .from('evaluations')
     .select('id, division_id, status, grade_at_eval')
     .eq('member_id', memberId)
     .eq('eval_period_id', periodId)
     .limit(1)
     .single();
+  if (evaluationErr) console.error('[DB] evaluations 取得エラー:', evaluationErr);
 
   if (!evaluation) {
     return (
@@ -117,11 +118,12 @@ export default async function ManagerQualitativePage(props: QualitativePageProps
   };
 
   // 対象メンバー情報を取得
-  const { data: targetMember } = await supabase
+  const { data: targetMember, error: targetMemberErr } = await supabase
     .from('members')
     .select('id, name, grade')
     .eq('id', memberId)
     .single();
+  if (targetMemberErr) console.error('[DB] members 取得エラー:', targetMemberErr);
 
   if (!targetMember) {
     return (
@@ -136,18 +138,19 @@ export default async function ManagerQualitativePage(props: QualitativePageProps
   const member = targetMember as { id: string; name: string; grade: Grade };
 
   // メンバーの事業部での職種を取得
-  const { data: divMember } = await supabase
+  const { data: divMember, error: divMemberErr } = await supabase
     .from('division_members')
     .select('role')
     .eq('member_id', memberId)
     .eq('division_id', evalRecord.division_id)
     .limit(1)
     .single();
+  if (divMemberErr) console.error('[DB] division_members 取得エラー:', divMemberErr);
 
   const role = (divMember as { role: string } | null)?.role ?? '';
 
   // 定性評価テンプレートを取得
-  const { data: template } = await supabase
+  const { data: template, error: templateErr } = await supabase
     .from('kpi_templates')
     .select('id')
     .eq('division_id', evalRecord.division_id)
@@ -156,6 +159,7 @@ export default async function ManagerQualitativePage(props: QualitativePageProps
     .eq('is_active', true)
     .limit(1)
     .single();
+  if (templateErr) console.error('[DB] kpi_templates 取得エラー:', templateErr);
 
   // 行動項目を取得
   let behaviorItems: Array<{
@@ -167,11 +171,12 @@ export default async function ManagerQualitativePage(props: QualitativePageProps
   }> = [];
 
   if (template) {
-    const { data: items } = await supabase
+    const { data: items, error: itemsErr } = await supabase
       .from('behavior_items')
       .select('id, name, criteria, max_score, sort_order')
       .eq('template_id', (template as { id: string }).id)
       .order('sort_order', { ascending: true });
+    if (itemsErr) console.error('[DB] behavior_items 取得エラー:', itemsErr);
 
     if (items) {
       behaviorItems = items as typeof behaviorItems;
@@ -179,10 +184,11 @@ export default async function ManagerQualitativePage(props: QualitativePageProps
   }
 
   // 既存の eval_behavior_scores を取得 (自己評価 + 上長評価)
-  const { data: existingScores } = await supabase
+  const { data: existingScores, error: existingScoresErr } = await supabase
     .from('eval_behavior_scores')
     .select('behavior_item_id, self_score, manager_score, comment, is_upper_grade_behavior')
     .eq('evaluation_id', evalRecord.id);
+  if (existingScoresErr) console.error('[DB] eval_behavior_scores 取得エラー:', existingScoresErr);
 
   const scores = (existingScores ?? []) as Array<{
     behavior_item_id: string;

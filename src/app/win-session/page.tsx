@@ -45,17 +45,18 @@ export default async function WinSessionPage() {
   const supabase = await createClient();
 
   // メンバーのプライマリ部署を取得
-  const { data: primaryDiv } = await supabase
+  const { data: primaryDiv, error: primaryDivErr } = await supabase
     .from('division_members')
     .select('division_id')
     .eq('member_id', member.id)
     .eq('is_primary', true)
     .single();
+  if (primaryDivErr) console.error('[DB] division_members 取得エラー:', primaryDivErr);
 
   const memberDivisionId = (primaryDiv?.division_id as string) ?? '';
 
   // 過去のセッションを取得
-  const { data: sessionsRaw } = await supabase
+  const { data: sessionsRaw, error: sessionsRawErr } = await supabase
     .from('win_sessions')
     .select(`
       id, session_date,
@@ -68,6 +69,7 @@ export default async function WinSessionPage() {
     `)
     .order('session_date', { ascending: false })
     .limit(10);
+  if (sessionsRawErr) console.error('[DB] win_sessions 取得エラー:', sessionsRawErr);
 
   // camelCaseに変換
   const sessions = ((sessionsRaw as unknown as WinSessionRow[] | null) ?? []).map((session) => ({

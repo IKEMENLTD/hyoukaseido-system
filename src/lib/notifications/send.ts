@@ -157,11 +157,12 @@ export async function sendNotification(
   const supabase = externalClient ?? await createClient();
 
   // このイベントを購読しているアクティブチャンネルを取得
-  const { data: channels } = await supabase
+  const { data: channels, error: channelsErr } = await supabase
     .from('notification_channels')
     .select('id, type, webhook_url, api_token, events')
     .eq('org_id', orgId)
     .eq('is_active', true);
+  if (channelsErr) console.error('[DB] notification_channels 取得エラー:', channelsErr);
 
   if (!channels || channels.length === 0) return [];
 

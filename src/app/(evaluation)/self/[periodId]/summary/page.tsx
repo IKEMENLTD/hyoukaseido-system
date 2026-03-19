@@ -47,20 +47,22 @@ export default async function SelfSummaryPage(props: SelfSummaryPageProps) {
   const supabase = await createClient();
 
   // 評価期間名を取得
-  const { data: period } = await supabase
+  const { data: period, error: periodErr } = await supabase
     .from('eval_periods')
     .select('name')
     .eq('id', periodId)
     .single();
+  if (periodErr) console.error('[DB] eval_periods 取得エラー:', periodErr);
 
   const periodName = (period as { name: string } | null)?.name ?? '不明な評価期間';
 
   // 事業部名を取得
-  const { data: division } = await supabase
+  const { data: division, error: divisionErr } = await supabase
     .from('divisions')
     .select('name')
     .eq('id', evaluation.division_id)
     .single();
+  if (divisionErr) console.error('[DB] divisions 取得エラー:', divisionErr);
 
   const divisionName = (division as { name: string } | null)?.name ?? '不明';
 

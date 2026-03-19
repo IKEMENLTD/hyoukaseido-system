@@ -56,11 +56,12 @@ export default async function AdminDivisionsPage() {
     .order('name');
 
   // org_id取得 (最初の組織)
-  const { data: orgs } = await supabase
+  const { data: orgs, error: orgsErr } = await supabase
     .from('organizations')
     .select('id')
     .limit(1)
     .single();
+  if (orgsErr) console.error('[DB] organizations 取得エラー:', orgsErr);
 
   const divisionQueryList: DivisionQueryRow[] = (divisions as DivisionQueryRow[] | null) ?? [];
   const orgId: string = orgs?.id ?? '';
@@ -70,11 +71,12 @@ export default async function AdminDivisionsPage() {
   const headMap: Record<string, string> = {};
 
   if (divisionIds.length > 0) {
-    const { data: heads } = await supabase
+    const { data: heads, error: headsErr } = await supabase
       .from('division_members')
       .select('division_id, members(name)')
       .eq('is_head', true)
       .in('division_id', divisionIds);
+    if (headsErr) console.error('[DB] division_members 取得エラー:', headsErr);
 
     if (heads) {
       for (const head of heads as unknown as Array<{ division_id: string; members: { name: string } | null }>) {

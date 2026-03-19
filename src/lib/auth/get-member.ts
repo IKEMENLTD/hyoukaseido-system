@@ -45,18 +45,20 @@ export async function getMemberResult(): Promise<GetMemberResult> {
 
   // 紐付けされていない場合、メールアドレスで自動リンクを試行
   if (!member && user.email) {
-    const { data: linkedId } = await supabase
+    const { data: linkedId, error: linkedIdErr } = await supabase
       .rpc('auto_link_member', {
         p_auth_uid: user.id,
         p_email: user.email,
       });
+    if (linkedIdErr) console.error('[DB] auto_link_member 取得エラー:', linkedIdErr);
 
     if (linkedId) {
-      const { data: linked } = await supabase
+      const { data: linked, error: linkedErr } = await supabase
         .from('members')
         .select('id, name, grade, monthly_salary, org_id')
         .eq('auth_user_id', user.id)
         .single();
+      if (linkedErr) console.error('[DB] members 取得エラー:', linkedErr);
       member = linked;
     }
   }
@@ -66,10 +68,11 @@ export async function getMemberResult(): Promise<GetMemberResult> {
   }
 
   // 所属事業部IDリストを取得
-  const { data: divMemberships } = await supabase
+  const { data: divMemberships, error: divMembershipsErr } = await supabase
     .from('division_members')
     .select('division_id')
     .eq('member_id', member.id as string);
+  if (divMembershipsErr) console.error('[DB] division_members 取得エラー:', divMembershipsErr);
 
   return {
     status: 'ok',

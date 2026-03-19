@@ -120,7 +120,7 @@ export default async function ObjectiveDetailPage(props: ObjectiveDetailPageProp
   const typedObjective = objective as unknown as ObjectiveRow;
 
   // Key Results + チェックイン履歴取得
-  const { data: rawKeyResults } = await supabase
+  const { data: rawKeyResults, error: rawKeyResultsErr } = await supabase
     .from('okr_key_results')
     .select(`
       id, title, target_value, current_value, unit, confidence, final_score,
@@ -128,6 +128,7 @@ export default async function ObjectiveDetailPage(props: ObjectiveDetailPageProp
     `)
     .eq('objective_id', objectiveId)
     .order('sort_order');
+  if (rawKeyResultsErr) console.error('[DB] okr_key_results 取得エラー:', rawKeyResultsErr);
 
   // データ変換
   const periodName = typedObjective.okr_periods?.name ?? '';

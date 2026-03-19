@@ -120,13 +120,14 @@ export default function OneOnOneNewClient({
     const fetchOkr = async () => {
       setOkrLoading(true);
       const supabase = createClient();
-      const { data } = await supabase
+      const { data, error: dataErr } = await supabase
         .from('okr_objectives')
         .select(
           'title, okr_key_results (title, current_value, target_value, unit, confidence)',
         )
         .eq('member_id', selectedMemberId)
         .eq('status', 'active');
+      if (dataErr) console.error('[DB] okr_objectives 取得エラー:', dataErr);
 
       if (cancelled) return;
 

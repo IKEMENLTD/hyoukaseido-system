@@ -57,11 +57,12 @@ export default async function AdminOkrPeriodsPage() {
     .order('fiscal_year', { ascending: false });
 
   // org_id取得 (最初の組織)
-  const { data: orgs } = await supabase
+  const { data: orgs, error: orgsErr } = await supabase
     .from('organizations')
     .select('id')
     .limit(1)
     .single();
+  if (orgsErr) console.error('[DB] organizations 取得エラー:', orgsErr);
 
   const periodList: OkrPeriodRow[] = (periods as OkrPeriodRow[] | null) ?? [];
   const orgId: string = orgs?.id ?? '';

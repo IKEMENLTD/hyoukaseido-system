@@ -50,24 +50,26 @@ export async function getOrCreateEvaluation(
   const supabase = await createClient();
 
   // 既存レコードを検索
-  const { data: existing } = await supabase
+  const { data: existing, error: existingErr } = await supabase
     .from('evaluations')
     .select('*')
     .eq('member_id', memberId)
     .eq('eval_period_id', periodId)
     .limit(1)
     .single();
+  if (existingErr && existingErr.code !== 'PGRST116') console.error('[DB] evaluations 取得エラー:', existingErr);
 
   if (existing) return existing as EvaluationRecord;
 
   // メンバーの主所属事業部を取得
-  const { data: divMember } = await supabase
+  const { data: divMember, error: divMemberErr } = await supabase
     .from('division_members')
     .select('division_id, divisions(phase)')
     .eq('member_id', memberId)
     .eq('is_primary', true)
     .limit(1)
     .single();
+  if (divMemberErr) console.error('[DB] division_members 取得エラー:', divMemberErr);
 
   if (!divMember) return null;
 
@@ -84,12 +86,13 @@ export async function getOrCreateEvaluation(
     : [prevMonth + 1]; // データが少ない場合は前月のみ
   const lookbackYear = now.getFullYear();
 
-  const { data: financials } = await supabase
+  const { data: financials, error: financialsErr } = await supabase
     .from('division_financials')
     .select('revenue, cost, operating_cost')
     .eq('division_id', dm.division_id)
     .eq('fiscal_year', lookbackYear)
     .in('month', lookbackMonths);
+  if (financialsErr) console.error('[DB] division_financials 取得エラー:', financialsErr);
 
   if (financials && financials.length > 0) {
     const rows = financials as Array<{ revenue: number; cost: number; operating_cost: number }>;
@@ -98,11 +101,12 @@ export async function getOrCreateEvaluation(
   }
 
   // メンバー情報のスナップショット取得
-  const { data: member } = await supabase
+  const { data: member, error: memberErr } = await supabase
     .from('members')
     .select('grade, monthly_salary')
     .eq('id', memberId)
     .single();
+  if (memberErr) console.error('[DB] members 取得エラー:', memberErr);
 
   if (!member) return null;
 

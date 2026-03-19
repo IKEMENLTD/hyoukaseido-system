@@ -124,6 +124,10 @@ export default async function MemberPage(props: MemberPageProps) {
       .single(),
   ]);
 
+  if (memberResult.error) console.error('[DB] members 取得エラー:', memberResult.error);
+  if (divResult.error) console.error('[DB] division_members 取得エラー:', divResult.error);
+  if (periodResult.error) console.error('[DB] eval_periods 取得エラー:', periodResult.error);
+
   const targetMember = memberResult.data;
 
   if (!targetMember) {
@@ -162,18 +166,20 @@ export default async function MemberPage(props: MemberPageProps) {
   let kpiProgress: KPIProgress[] = [];
 
   if (latestPeriod) {
-    const { data: currentEval } = await supabase
+    const { data: currentEval, error: currentEvalErr } = await supabase
       .from('evaluations')
       .select('id')
       .eq('member_id', memberId)
       .eq('eval_period_id', latestPeriod.id)
       .single();
+    if (currentEvalErr) console.error('[DB] evaluations 取得エラー:', currentEvalErr);
 
     if (currentEval) {
-      const { data: kpiScores } = await supabase
+      const { data: kpiScores, error: kpiScoresErr } = await supabase
         .from('eval_kpi_scores')
         .select('target_value, actual_value, kpi_items (name, measurement_unit)')
         .eq('evaluation_id', currentEval.id);
+      if (kpiScoresErr) console.error('[DB] eval_kpi_scores 取得エラー:', kpiScoresErr);
 
       if (kpiScores) {
         kpiProgress = kpiScores.map((score) => {
@@ -211,6 +217,9 @@ export default async function MemberPage(props: MemberPageProps) {
       .order('created_at', { ascending: false })
       .limit(5),
   ]);
+
+  if (okrResult.error) console.error('[DB] okr_objectives 取得エラー:', okrResult.error);
+  if (evalHistoryResult.error) console.error('[DB] evaluations 取得エラー:', evalHistoryResult.error);
 
   // -- OKRデータ変換 --
   const okrStatus: OKRStatus[] = (okrResult.data ?? []).map((obj) => {

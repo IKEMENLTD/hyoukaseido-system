@@ -106,7 +106,7 @@ export default async function ImprovementPlansPage() {
   }
 
   const supabase = await createClient();
-  const { data: rawPlans } = await supabase
+  const { data: rawPlans, error: rawPlansErr } = await supabase
     .from('improvement_plans')
     .select(`
       id, plan_description, milestones, review_frequency, start_date, end_date, status, outcome,
@@ -115,22 +115,25 @@ export default async function ImprovementPlansPage() {
       evaluations (rank, divisions (name))
     `)
     .order('created_at', { ascending: false });
+  if (rawPlansErr) console.error('[DB] improvement_plans 取得エラー:', rawPlansErr);
 
   const plans: DisplayPlan[] = (rawPlans as ImprovementPlanRow[] | null)?.map(toDisplayPlan) ?? [];
 
   // C/Dランクの評価を取得（改善計画作成フォーム用）
   // まだ改善計画が作られていないevaluationのみ対象
-  const { data: cdEvalRaw } = await supabase
+  const { data: cdEvalRaw, error: cdEvalRawErr } = await supabase
     .from('evaluations')
     .select('id, member_id, rank, members!evaluations_member_id_fkey(name)')
     .in('rank', ['C', 'D'])
     .in('status', ['calibrated', 'feedback_done', 'finalized'])
     .order('created_at', { ascending: false });
+  if (cdEvalRawErr) console.error('[DB] evaluations 取得エラー:', cdEvalRawErr);
 
   // 既存の改善計画で使われているevaluation_idを除外
-  const { data: existingPlanEvalIds } = await supabase
+  const { data: existingPlanEvalIds, error: existingPlanEvalIdsErr } = await supabase
     .from('improvement_plans')
     .select('evaluation_id');
+  if (existingPlanEvalIdsErr) console.error('[DB] improvement_plans 取得エラー:', existingPlanEvalIdsErr);
 
   const usedEvalIdSet = new Set(
     (existingPlanEvalIds as Array<{ evaluation_id: string }> | null)?.map(

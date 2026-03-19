@@ -325,17 +325,19 @@ export async function submitSelfEvaluation(
   const member = await getCurrentMember();
   if (member) {
     const serviceClient = createServiceRoleClient();
-    const { data: evalPeriod } = await serviceClient
+    const { data: evalPeriod, error: evalPeriodErr } = await serviceClient
       .from('evaluations')
       .select('eval_period_id')
       .eq('id', evaluationId)
       .single();
+    if (evalPeriodErr) console.error('[DB] evaluations 取得エラー:', evalPeriodErr);
     if (evalPeriod) {
-      const { data: period } = await serviceClient
+      const { data: period, error: periodErr } = await serviceClient
         .from('eval_periods')
         .select('name')
         .eq('id', (evalPeriod as { eval_period_id: string }).eval_period_id)
         .single();
+      if (periodErr) console.error('[DB] eval_periods 取得エラー:', periodErr);
       const periodName = (period as { name: string } | null)?.name ?? '';
       notifyEvalSubmitted(member.org_id, member.name, periodName, serviceClient).catch((err: unknown) => {
         console.warn('通知送信失敗:', err instanceof Error ? err.message : err);
@@ -526,17 +528,20 @@ export async function submitManagerEvaluation(
   // 通知: 上長評価提出 → キャリブレーション担当に通知 (fire-and-forget)
   // service roleクライアントを使用してnotification_channelsのRLSをバイパス
   const serviceClient = createServiceRoleClient();
-  const { data: evalRow } = await serviceClient
+  const { data: evalRow, error: evalRowErr } = await serviceClient
     .from('evaluations')
     .select('eval_period_id, member_id')
     .eq('id', evaluationId)
     .single();
+  if (evalRowErr) console.error('[DB] evaluations 取得エラー:', evalRowErr);
   if (evalRow) {
     const evalInfo = evalRow as { eval_period_id: string; member_id: string };
     const [periodRes, memberRes] = await Promise.all([
       serviceClient.from('eval_periods').select('name').eq('id', evalInfo.eval_period_id).single(),
       serviceClient.from('members').select('name').eq('id', evalInfo.member_id).single(),
     ]);
+    if (periodRes.error) console.error('[DB] eval_periods 取得エラー:', periodRes.error);
+    if (memberRes.error) console.error('[DB] members 取得エラー:', memberRes.error);
     const periodName = (periodRes.data as { name: string } | null)?.name ?? '';
     const memberName = (memberRes.data as { name: string } | null)?.name ?? '';
     notifyManagerEvalRequest(member.org_id, memberName, periodName, serviceClient).catch((err: unknown) => {
@@ -659,11 +664,12 @@ export async function submitFeedback(
   // service roleクライアントを使用してnotification_channelsのRLSをバイパス
   const evalInfo = data as { id: string; member_id: string };
   const feedbackServiceClient = createServiceRoleClient();
-  const { data: targetMember } = await feedbackServiceClient
+  const { data: targetMember, error: targetMemberErr } = await feedbackServiceClient
     .from('members')
     .select('name')
     .eq('id', evalInfo.member_id)
     .single();
+  if (targetMemberErr) console.error('[DB] members 取得エラー:', targetMemberErr);
   if (targetMember) {
     const { notifyFeedbackReady } = await import('@/lib/notifications/events');
     notifyFeedbackReady(member.org_id, (targetMember as { name: string }).name, feedbackServiceClient).catch((err: unknown) => {
@@ -842,11 +848,12 @@ export async function revertEvalPeriodStatus(
 async function recalculateQuantitativeScore(evaluationId: string): Promise<void> {
   const supabase = await createClient();
 
-  const { data: scores } = await supabase
+  const { data: scores, error: scoresErr } = await supabase
     .from('eval_kpi_scores')
     .select('id, kpi_item_id, target_value, actual_value')
     .eq('evaluation_id', evaluationId)
     .not('actual_value', 'is', null);
+  if (scoresErr) console.error('[DB] eval_kpi_scores 取得エラー:', scoresErr);
 
   if (!scores || scores.length === 0) return;
 
@@ -858,10 +865,11 @@ async function recalculateQuantitativeScore(evaluationId: string): Promise<void>
   }>;
 
   const kpiItemIds = kpiScores.map((s) => s.kpi_item_id);
-  const { data: items } = await supabase
+  const { data: items, error: itemsErr } = await supabase
     .from('kpi_items')
     .select('id, weight, threshold_s, threshold_a, threshold_b, threshold_c')
     .in('id', kpiItemIds);
+  if (itemsErr) console.error('[DB] kpi_items 取得エラー:', itemsErr);
 
   if (!items) return;
 
@@ -927,11 +935,12 @@ async function recalculateQualitativeScore(
   const supabase = await createClient();
   const scoreColumn = mode === 'self' ? 'self_score' : 'manager_score';
 
-  const { data: scores } = await supabase
+  const { data: scores, error: behaviorScoresErr } = await supabase
     .from('eval_behavior_scores')
     .select(scoreColumn)
     .eq('evaluation_id', evaluationId)
     .not(scoreColumn, 'is', null);
+  if (behaviorScoresErr) console.error('[DB] eval_behavior_scores 取得エラー:', behaviorScoresErr);
 
   if (!scores || scores.length === 0) return;
 
@@ -953,20 +962,22 @@ async function recalculateValueScore(
   const supabase = await createClient();
   const scoreColumn = mode === 'self' ? 'self_score' : 'manager_score';
 
-  const { data: scores } = await supabase
+  const { data: scores, error: valueScoresErr } = await supabase
     .from('eval_value_scores')
     .select(`value_item_id, ${scoreColumn}`)
     .eq('evaluation_id', evaluationId)
     .not(scoreColumn, 'is', null);
+  if (valueScoresErr) console.error('[DB] eval_value_scores 取得エラー:', valueScoresErr);
 
   if (!scores || scores.length === 0) return;
 
   // value_items から max_score を取得
   const valueItemIds = scores.map((s: Record<string, string>) => s.value_item_id);
-  const { data: valueItems } = await supabase
+  const { data: valueItems, error: valueItemsErr } = await supabase
     .from('value_items')
     .select('id, max_score')
     .in('id', valueItemIds);
+  if (valueItemsErr) console.error('[DB] value_items 取得エラー:', valueItemsErr);
 
   if (!valueItems) return;
 
@@ -1011,13 +1022,14 @@ function determineUpperBehaviorBonus(flagCount: number): number {
 async function recalculateTotalScoreAndRank(evaluationId: string): Promise<void> {
   const supabase = await createClient();
 
-  const { data: evaluation } = await supabase
+  const { data: evaluation, error: evaluationErr } = await supabase
     .from('evaluations')
     .select(
       'member_id, eval_period_id, quantitative_score, qualitative_score, value_score, phase_at_eval, quantitative_weight, qualitative_weight, value_weight'
     )
     .eq('id', evaluationId)
     .single();
+  if (evaluationErr) console.error('[DB] evaluations 取得エラー:', evaluationErr);
 
   if (!evaluation) return;
 
@@ -1048,22 +1060,24 @@ async function recalculateTotalScoreAndRank(evaluationId: string): Promise<void>
 
   // --- rank_thresholds テーブルからカスタム閾値を取得 ---
   // メンバーの org_id を取得
-  const { data: memberRow } = await supabase
+  const { data: memberRow, error: memberRowErr } = await supabase
     .from('members')
     .select('org_id')
     .eq('id', evalData.member_id)
     .single();
+  if (memberRowErr) console.error('[DB] members 取得エラー:', memberRowErr);
 
   let baseRank: Rank;
   let salaryAmount: number;
 
   if (memberRow) {
     const orgId = (memberRow as { org_id: string }).org_id;
-    const { data: thresholds } = await supabase
+    const { data: thresholds, error: thresholdsErr } = await supabase
       .from('rank_thresholds')
       .select('rank, min_score, salary_change')
       .eq('org_id', orgId)
       .order('min_score', { ascending: false });
+    if (thresholdsErr) console.error('[DB] rank_thresholds 取得エラー:', thresholdsErr);
 
     if (thresholds && thresholds.length > 0) {
       // DB閾値を使用
@@ -1088,12 +1102,13 @@ async function recalculateTotalScoreAndRank(evaluationId: string): Promise<void>
   }
 
   // 上位行動ボーナス: 上長評価済み(manager_score非null)かつフラグ付きのみカウント
-  const { data: upperBehaviors } = await supabase
+  const { data: upperBehaviors, error: upperBehaviorsErr } = await supabase
     .from('eval_behavior_scores')
     .select('id')
     .eq('evaluation_id', evaluationId)
     .eq('is_upper_grade_behavior', true)
     .not('manager_score', 'is', null);
+  if (upperBehaviorsErr) console.error('[DB] eval_behavior_scores 取得エラー:', upperBehaviorsErr);
 
   const upperCount = upperBehaviors?.length ?? 0;
   const bonus = determineUpperBehaviorBonus(upperCount);
@@ -1104,12 +1119,13 @@ async function recalculateTotalScoreAndRank(evaluationId: string): Promise<void>
     // rank_thresholdsがある場合はそこから取得
     if (memberRow) {
       const orgId = (memberRow as { org_id: string }).org_id;
-      const { data: finalThreshold } = await supabase
+      const { data: finalThreshold, error: finalThresholdErr } = await supabase
         .from('rank_thresholds')
         .select('salary_change')
         .eq('org_id', orgId)
         .eq('rank', finalRank)
         .single();
+      if (finalThresholdErr) console.error('[DB] rank_thresholds 取得エラー:', finalThresholdErr);
       if (finalThreshold) {
         salaryAmount = (finalThreshold as { salary_change: number }).salary_change;
       } else {
@@ -1122,7 +1138,7 @@ async function recalculateTotalScoreAndRank(evaluationId: string): Promise<void>
 
   // --- promotion_eligibility 計算 ---
   // 過去評価を取得して昇格適格性を判定
-  const { data: pastEvals } = await supabase
+  const { data: pastEvals, error: pastEvalsErr } = await supabase
     .from('evaluations')
     .select('rank, eval_period_id')
     .eq('member_id', evalData.member_id)
@@ -1131,6 +1147,7 @@ async function recalculateTotalScoreAndRank(evaluationId: string): Promise<void>
     .not('rank', 'is', null)
     .order('created_at', { ascending: false })
     .limit(5);
+  if (pastEvalsErr) console.error('[DB] evaluations 取得エラー:', pastEvalsErr);
 
   let promotionEligibility: 'immediate' | 'candidate' | 'none' = 'none';
   if (finalRank === 'S') {

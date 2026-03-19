@@ -37,10 +37,11 @@ export default async function NewOneOnOnePage() {
   const supabase = await createClient();
 
   // 自分の所属部門を取得
-  const { data: myDivisions } = await supabase
+  const { data: myDivisions, error: myDivisionsErr } = await supabase
     .from('division_members')
     .select('division_id')
     .eq('member_id', member.id);
+  if (myDivisionsErr) console.error('[DB] division_members 取得エラー:', myDivisionsErr);
 
   const divisionIds = (myDivisions as DivisionMemberRow[] | null ?? []).map(
     (d) => d.division_id,
@@ -50,11 +51,12 @@ export default async function NewOneOnOnePage() {
   let teamMembers: Array<{ id: string; name: string }> = [];
 
   if (divisionIds.length > 0) {
-    const { data: divMembers } = await supabase
+    const { data: divMembers, error: divMembersErr } = await supabase
       .from('division_members')
       .select('members (id, name)')
       .in('division_id', divisionIds)
       .neq('member_id', member.id);
+    if (divMembersErr) console.error('[DB] division_members 取得エラー:', divMembersErr);
 
     const rows = divMembers as MemberNestedRow[] | null;
     const seen = new Set<string>();
