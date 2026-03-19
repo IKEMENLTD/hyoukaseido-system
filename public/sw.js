@@ -31,11 +31,18 @@ self.addEventListener('activate', (event) => {
 
 // フェッチ: Network First → キャッシュフォールバック
 self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+
+  // http/https以外のスキーム(chrome-extension://等)はキャッシュ不可なのでスキップ
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    return;
+  }
+
   // API・認証リクエストはキャッシュしない
   if (
     event.request.method !== 'GET' ||
-    event.request.url.includes('/api/') ||
-    event.request.url.includes('/auth/')
+    url.pathname.includes('/api/') ||
+    url.pathname.includes('/auth/')
   ) {
     return;
   }
