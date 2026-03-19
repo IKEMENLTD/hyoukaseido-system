@@ -867,6 +867,7 @@ supabase/migration_002_oauth_account_links.sql      OAuth連携テーブル + no
 supabase/migration_003_shared_costs.sql             共有コストテーブル
 supabase/migration_004_notification_api_token.sql   api_tokenカラム + RLSポリシー更新
 supabase/migration_005_rls_org_id_filter.sql        10テーブルにorg_idフィルタ追加
+supabase/migration_006_security_hardening.sql       members給与保護+division_financials部門フィルタ+quarterly_bonuses org検証
 .env.local.example                                  環境変数テンプレート
 
 ※ メンバーは管理画面から手動登録 (最初のG5はSupabase Dashboard直接INSERT)

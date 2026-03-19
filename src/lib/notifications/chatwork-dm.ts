@@ -140,7 +140,9 @@ export async function sendChatworkDM(
       ? (payload.url.startsWith('http') ? payload.url : `${appUrl}${payload.url}`)
       : '';
     const urlSuffix = resolvedUrl ? `\n${resolvedUrl}` : '';
-    const body = `[info][title]${payload.title}[/title]${payload.message}${urlSuffix}[/info]`;
+    // ChatWorkタグインジェクション対策
+    const escCw = (t: string) => t.replace(/\[/g, '［').replace(/\]/g, '］');
+    const body = `[info][title]${escCw(payload.title)}[/title]${escCw(payload.message)}${urlSuffix}[/info]`;
 
     const response = await fetch(
       `https://api.chatwork.com/v2/rooms/${roomId}/messages`,

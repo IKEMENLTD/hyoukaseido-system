@@ -64,13 +64,18 @@ function buildLinePayload(payload: NotificationPayload): Record<string, unknown>
   };
 }
 
+/** ChatWorkタグインジェクション対策: [ ] をエスケープ */
+function escapeChatwork(text: string): string {
+  return text.replace(/\[/g, '［').replace(/\]/g, '］');
+}
+
 /**
  * ChatWork Webhook用のペイロードを構築
  */
 function buildChatworkPayload(payload: NotificationPayload): Record<string, unknown> {
   const urlSuffix = payload.url ? `\n${payload.url}` : '';
   return {
-    body: `[info][title]${payload.title}[/title]${payload.message}${urlSuffix}[/info]`,
+    body: `[info][title]${escapeChatwork(payload.title)}[/title]${escapeChatwork(payload.message)}${urlSuffix}[/info]`,
   };
 }
 
