@@ -1,8 +1,8 @@
 ================================================================================
 評価制度システム v2.0 アーキテクチャ設計書 (実装版)
 ================================================================================
-最終更新: 2026-03-16
-ステータス: 実装済み (本番デプロイ準備完了)
+最終更新: 2026-03-18
+ステータス: 実装済み (本番デプロイ済み: https://hyoukaseido.netlify.app)
 
 ================================================================================
 1. システム概要
@@ -15,12 +15,13 @@
 
 1-2. 技術スタック
 -----------------
-フロントエンド : Next.js 15 (App Router) + TypeScript + React 19
+フロントエンド : Next.js 16 (App Router) + TypeScript + React 19
 スタイル       : Tailwind CSS v4 (INDUSTRIAL VOIDデザインシステム)
 バックエンド   : Supabase (PostgreSQL + Auth + RLS)
 認証           : Supabase Auth (Google OAuth)
-通知           : Slack / LINE / ChatWork Webhook
-ホスティング   : Netlify
+通知(組織)     : Slack Webhook / LINE Messaging API / ChatWork REST API (トークンはDB管理)
+通知(個人DM)   : OAuth連携 (Slack/LINE/ChatWork) ※未設定
+ホスティング   : Netlify (https://hyoukaseido.netlify.app)
 主要パッケージ : @supabase/supabase-js, @supabase/ssr, next, react
 UIユーティリティ: lucide-react (SVGアイコン), recharts (グラフ), clsx, tailwind-merge, class-variance-authority
 設定ファイル   : tsconfig.json, next.config.ts, postcss.config.mjs
@@ -84,7 +85,16 @@ src/
     guide/                            使い方ガイド (28ステップ完全マニュアル)
     profile/                          プロフィール・通知設定
     api/notifications/send/           通知送信API
-    auth/callback/                    OAuth callback
+    api/notifications/test/           通知テスト送信API (G4/G5)
+    api/oauth/[provider]/initiate/    OAuth連携開始
+    api/oauth/[provider]/callback/    OAuthコールバック
+    api/oauth/[provider]/disconnect/  OAuth連携解除
+    api/cron/eval-reminder/           自己評価リマインド (外部Cron)
+    api/cron/okr-checkin/             OKRチェックインリマインド
+    api/cron/okr-review/              OKRレビュー期限リマインド
+    api/cron/one-on-one-reminder/     1on1リマインド
+    api/cron/win-session-reminder/    ウィンセッションリマインド
+    auth/callback/                    OAuth callback (Supabase Auth)
   components/
     dashboard/                        CompanyOverview, CrossSellMap, DivisionComparison, ROIChart
     evaluation/                       PhaseIndicator
@@ -95,7 +105,10 @@ src/
     evaluation/                       actions.ts (13 Server Actions), calculator.ts, get-or-create-evaluation.ts
     okr/                              actions.ts (OKR/1on1/改善計画/ボーナス)
     crosssell/                        bonus-calculator.ts
-    notifications/                    client.ts, events.ts, send.ts, types.ts, index.ts
+    notifications/                    client.ts, events.ts, send.ts, types.ts, index.ts,
+                                      personal-send.ts, slack-dm.ts, line-push.ts, chatwork-dm.ts
+    oauth/                            providers.ts, state.ts, token-refresh.ts
+    crypto/                           token-encryption.ts (AES-256-GCM)
     supabase/                         client.ts, server.ts, types.ts
   types/
     evaluation.ts                     評価関連型定義 (60+型)
@@ -147,8 +160,10 @@ improvement_plans         改善計画 (milestones JSONB)
 quarterly_bonuses         四半期インセンティブ
 win_sessions              ウィンセッション
 win_session_entries       ウィンセッションエントリー
-notification_channels     通知チャンネル設定
-notification_preferences  通知個人設定
+notification_channels     通知チャンネル設定 (type, webhook_url, api_token, events)
+notification_preferences  通知個人設定 (slack/line/chatwork_enabled)
+oauth_account_links       OAuth連携情報 (暗号化トークン, dm_room_id)
+shared_costs              共有コスト (migration_003で追加)
 
 ================================================================================
 4. Server Actions一覧
@@ -219,9 +234,35 @@ TossPageClient (成約時)   -> fireNotification(crosssell_contracted)
 
 5-4. 対応チャンネル
 -------------------
-Slack     : blocks形式 + ボタン付きリッチメッセージ
-LINE      : テキストメッセージ
-ChatWork  : [info][title]タグ形式
+Slack     : Incoming Webhook URL (blocks形式 + ボタン付きリッチメッセージ)
+LINE      : Messaging API エンドポイント + チャネルアクセストークン (DB管理)
+ChatWork  : REST API エンドポイント + APIトークン (DB管理)
+           ※ ChatWorkはルームURLを貼ると自動でAPIエンドポイントに変換
+
+5-5. 認証トークン管理
+---------------------
+組織チャネル通知:
+  - Slack: Webhook URLに認証情報が含まれるため追加トークン不要
+  - ChatWork/LINE: api_tokenカラム(notification_channelsテーブル)にDB保存
+  - 管理画面(admin/notifications)からG4/G5管理者が設定
+  - ※ 環境変数(CHATWORK_API_TOKEN等)には依存しない
+
+個人DM通知(OAuth連携): ※未設定
+  - 各メンバーがプロフィール画面からSlack/LINE/ChatWorkアカウントを連携
+  - OAuthトークンはAES-256-GCMで暗号化してDB保存(oauth_account_links)
+  - ChatWorkトークンは自動リフレッシュ対応
+
+5-6. Cronジョブ(定期通知)
+-------------------------
+eval-reminder          毎日 09:00 JST   自己評価リマインド
+okr-checkin            毎週月曜 09:00   OKRチェックインリマインド
+okr-review             毎日 09:00 JST   OKRレビュー期限リマインド
+one-on-one-reminder    毎月1日 09:00    1on1リマインド
+win-session-reminder   毎週金曜 09:00   ウィンセッションリマインド
+
+実行方式: 外部Cronサービス(cron-job.org等)からHTTP GETで
+         /api/cron/{name} を呼び出し (Authorization: Bearer CRON_SECRET)
+         ※ netlify.tomlにガイド記載
 
 ================================================================================
 6. セキュリティモデル
@@ -242,11 +283,16 @@ ChatWork  : [info][title]タグ形式
 
 6-3. 認可 (DB層 - RLS)
 -----------------------
-- 全28テーブルでRLS有効
+- 全テーブルでRLS有効
+- マルチテナント: 全テーブルにorg_idフィルタ適用(自組織のデータのみアクセス可)
+  - 直接: divisions, grade_definitions, value_items, okr_periods, eval_periods, crosssell_routes
+  - 間接(division_id経由): division_members, kpi_templates
+  - 間接(template_id経由): kpi_items, behavior_items
+  - notification_channels: org_id + G4/G5等級チェック
 - evaluations: member_id/evaluator_id/grade+division_idで階層制御
 - eval_*_scores: evaluationsテーブルを経由した間接RLS
 - members_select: USING(true) だが salary は G4/G5のみアプリ側で制御
-- 管理系テーブル: G4/G5のみ書き込み可
+- 管理系テーブル: G4/G5のみ書き込み可(modifyポリシーでorg_id+等級チェック)
 
 6-4. 楽観ロック
 --------------
@@ -259,7 +305,9 @@ ChatWork  : [info][title]タグ形式
 - ValueScore: 1-10 範囲チェック
 - テキスト: 1000-5000文字上限
 - 数値: NaN/Infinity チェック
-- 通知API: レートリミット(5秒/リクエスト)、URL相対パスのみ、文字数制限
+- 通知API: レートリミット(last_sent_atベース、DBレベル)、URL相対パスのみ(regex検証)、文字数制限
+- OAuth State: HMAC-SHA256署名(OAUTH_STATE_SECRET必須、空文字列フォールバック禁止)
+- トークン暗号化: AES-256-GCM (OAUTH_TOKEN_ENCRYPTION_KEY 32バイト検証付き)
 
 ================================================================================
 7. 評価エンジン
@@ -632,7 +680,9 @@ quantitative_score * weight% + qualitative_score * weight% + value_score * weigh
 ファイル     : app/profile/page.tsx
              : app/profile/ProfileClient.tsx
 種別         : Server + Client Component
-機能         : プロフィール閲覧 + 通知設定 (Slack/LINE ON/OFF)
+機能         : プロフィール閲覧 + OAuth連携(Slack/LINE/ChatWork) + 通知ON/OFF設定
+             : アカウント連携ボタン -> /api/oauth/{provider}/initiate -> 外部認証 -> callback
+             : 連携済みプロバイダーの通知トグル + 連携解除
 
 ------------------------------------------------------------------------
 8-34. /admin (管理メニュー)
@@ -694,7 +744,12 @@ quantitative_score * weight% + qualitative_score * weight% + value_score * weigh
              : app/admin/notifications/NotificationChannelManager.tsx
 種別         : Server + Client Component
 機能         : Slack/LINE/ChatWorkチャンネル設定
-             : Webhook URL, イベント購読設定, テスト送信
+             : タイプ別URL入力(Slack=Webhook URL, ChatWork/LINE=APIエンドポイント)
+             : ChatWork: ルームURL貼り付けで自動変換
+             : ChatWork/LINE: APIトークン入力(DB保存, type=password)
+             : イベント購読設定(15イベント), テスト送信
+             : タイプ別セットアップガイド(アコーディオン)
+セキュリティ : api_tokenはサーバーサイドのみ(クライアントにはhasApiToken boolのみ → 現在は削除済み、テスト送信で検証)
 
 ------------------------------------------------------------------------
 8-41. /admin/settings
@@ -740,9 +795,29 @@ quantitative_score * weight% + qualitative_score * weight% + value_score * weigh
 種別         : API Route (POST)
 機能         : 通知送信エンドポイント
 セキュリティ : 認証必須 + G3+権限チェック(管理者限定イベント)
-             : レートリミット(5秒/リクエスト)
              : title 200文字/message 1000文字上限
-             : URL相対パスのみ
+             : URL相対パスのみ(regex: /^\/[a-zA-Z0-9]/)
+             : ※ レートリミットは削除済み(サーバーレス非互換のため)
+
+------------------------------------------------------------------------
+8-45. /api/notifications/test
+------------------------------------------------------------------------
+ファイル     : app/api/notifications/test/route.ts
+種別         : API Route (POST)
+機能         : チャンネルテスト送信
+セキュリティ : G4/G5のみ + org_idフィルタ
+             : DBベースレートリミット(last_sent_atから5秒以内は拒否)
+             : ChatWork/LINEはapi_token存在チェック
+
+------------------------------------------------------------------------
+8-46. /api/cron/* (5エンドポイント)
+------------------------------------------------------------------------
+ファイル     : app/api/cron/{name}/route.ts + _shared/auth.ts
+種別         : API Route (GET)
+機能         : 定期通知(リマインダー)送信
+セキュリティ : Authorization: Bearer CRON_SECRET による認証
+             : service-roleクライアントでRLSバイパス
+実行方式     : 外部Cronサービスからのhttp呼び出し(netlify.tomlにガイド記載)
 
 ================================================================================
 9. デプロイ
@@ -750,9 +825,25 @@ quantitative_score * weight% + qualitative_score * weight% + value_score * weigh
 
 9-1. 環境変数
 -------------
-NEXT_PUBLIC_SUPABASE_URL      Supabase プロジェクトURL
-NEXT_PUBLIC_SUPABASE_ANON_KEY Supabase anon key
-NEXT_PUBLIC_APP_URL            アプリケーションURL (通知リンク用)
+【必須】
+NEXT_PUBLIC_SUPABASE_URL       Supabase プロジェクトURL
+NEXT_PUBLIC_SUPABASE_ANON_KEY  Supabase anon key
+SUPABASE_SERVICE_ROLE_KEY      Supabase service role key (RLSバイパス用)
+NEXT_PUBLIC_APP_URL            アプリケーションURL (https://hyoukaseido.netlify.app)
+
+【Cronジョブ用】
+CRON_SECRET                    Cron認証トークン
+
+【個人DM通知用 (OAuth連携時のみ)】
+CHATWORK_CLIENT_ID             ChatWork OAuthクライアントID
+CHATWORK_CLIENT_SECRET         ChatWork OAuthクライアントSecret
+OAUTH_STATE_SECRET             OAuth State HMAC署名鍵
+OAUTH_TOKEN_ENCRYPTION_KEY     トークン暗号化鍵 (64文字hex = 32バイト)
+SLACK_BOT_TOKEN                Slack Bot Token (個人DM用)
+LINE_MESSAGING_CHANNEL_ACCESS_TOKEN  LINE チャネルアクセストークン (個人DM用)
+
+※ ChatWork/LINEの組織チャネル通知用APIトークンは環境変数不要
+  → 管理画面(admin/notifications)からDB保存
 
 9-2. 静的アセット
 -----------------
@@ -767,10 +858,17 @@ Netlify: 自動デプロイ (main ブランチ push)
 
 9-4. DB初期化
 -------------
-supabase/schema.sql  テーブル+RLS+インデックス作成
-supabase/seed.sql    初期データ (組織/事業部/等級/KPIテンプレート/経路)
-.env.local.example   環境変数テンプレート (コピーして.env.localを作成)
+supabase/schema.sql                              テーブル+RLS+インデックス作成
+supabase/seed.sql                                初期データ (組織/事業部/等級/KPIテンプレート/経路)
+supabase/migration_001_security_and_financials.sql  rank_thresholds + division_financials
+supabase/migration_002_oauth_account_links.sql      OAuth連携テーブル + notification_preferences拡張
+supabase/migration_003_shared_costs.sql             共有コストテーブル
+supabase/migration_004_notification_api_token.sql   api_tokenカラム + RLSポリシー更新
+supabase/migration_005_rls_org_id_filter.sql        10テーブルにorg_idフィルタ追加
+.env.local.example                                  環境変数テンプレート
+
 ※ メンバーは管理画面から手動登録 (最初のG5はSupabase Dashboard直接INSERT)
+※ マイグレーションはschema.sql実行後に順番に適用
 
 ================================================================================
 END OF DOCUMENT
