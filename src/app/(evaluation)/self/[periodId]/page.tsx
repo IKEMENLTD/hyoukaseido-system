@@ -80,8 +80,17 @@ export default async function SelfEvalPage(props: SelfEvalPageProps) {
         <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4 sm:p-8 max-w-md text-center">
           <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">評価データを作成できません</h2>
           <p className="text-sm text-[#737373]">
-            事業部への所属が確認できません。管理者にお問い合わせください。
+            事業部への所属が確認できません。
           </p>
+          <p className="text-sm text-[#737373] mt-2">
+            メンバーの事業部配属が設定されていない可能性があります。管理者に確認してください。
+          </p>
+          <a
+            href="/history"
+            className="inline-block mt-4 px-4 py-2 border border-[#333333] text-xs text-[#a3a3a3] hover:border-[#e5e5e5] hover:text-[#e5e5e5] transition-colors"
+          >
+            評価・査定に戻る
+          </a>
         </div>
       </div>
     );

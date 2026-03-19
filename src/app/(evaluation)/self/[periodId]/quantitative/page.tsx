@@ -114,16 +114,21 @@ export default async function SelfQuantitativePage(props: SelfQuantitativePagePr
     <div className="min-h-screen bg-[#050505] p-3 sm:p-6">
       <div className="max-w-5xl mx-auto">
         {kpiItems.length === 0 ? (
-          <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-8 text-center">
-            <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">KPI項目が未設定です</h2>
-            <p className="text-sm text-[#737373]">
-              この事業部・職種の定量KPIテンプレートが設定されていません。管理者にお問い合わせください。
+          <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-6 sm:p-12 text-center space-y-4">
+            <h3 className="text-sm font-bold text-[#e5e5e5]">
+              KPI項目が設定されていません
+            </h3>
+            <p className="text-xs text-[#737373]">
+              この事業部・職種のKPIテンプレートがまだ設定されていません。
+            </p>
+            <p className="text-xs text-[#737373]">
+              管理者（G4以上）に連絡して、管理メニューの「KPIテンプレート」から設定を依頼してください。
             </p>
             <a
-              href={`/self/${periodId}`}
-              className="inline-block mt-4 px-4 py-2 border border-[#333333] text-xs text-[#a3a3a3] hover:border-[#555555] transition-colors"
+              href="/history"
+              className="inline-block px-4 py-2 border border-[#333333] text-xs text-[#a3a3a3] hover:border-[#e5e5e5] hover:text-[#e5e5e5]"
             >
-              戻る
+              評価・査定に戻る
             </a>
           </div>
         ) : (

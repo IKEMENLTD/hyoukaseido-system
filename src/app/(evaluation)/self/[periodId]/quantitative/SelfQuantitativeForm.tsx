@@ -219,6 +219,14 @@ export default function SelfQuantitativeForm({
                       {item.description && (
                         <div className="text-[10px] text-[#404040] mt-0.5">{item.description}</div>
                       )}
+                      {(item.threshold_s !== null || item.threshold_a !== null || item.threshold_b !== null || item.threshold_c !== null) && (
+                        <div className="text-[10px] text-[#525252] mt-1">
+                          {item.threshold_s !== null && <span>S: {item.threshold_s}%以上</span>}
+                          {item.threshold_a !== null && <span>{item.threshold_s !== null ? ' / ' : ''}A: {item.threshold_a}%以上</span>}
+                          {item.threshold_b !== null && <span>{(item.threshold_s !== null || item.threshold_a !== null) ? ' / ' : ''}B: {item.threshold_b}%以上</span>}
+                          {item.threshold_c !== null && <span>{(item.threshold_s !== null || item.threshold_a !== null || item.threshold_b !== null) ? ' / ' : ''}C: {item.threshold_c}%以上</span>}
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-right text-[#a3a3a3]">{item.weight}%</td>
                     <td className="px-4 py-3 text-right">

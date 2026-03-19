@@ -107,7 +107,7 @@ export default function CheckinForm({ keyResults, onSubmit }: CheckinFormProps) 
                   </label>
                   <div className="relative h-2 bg-[#1a1a1a] mt-3">
                     <div
-                      className="absolute top-0 left-0 h-full transition-all"
+                      className="absolute top-0 left-0 h-full transition-all pointer-events-none"
                       style={{
                         width: `${entry.confidence}%`,
                         backgroundColor: getConfidenceColor(entry.confidence),
@@ -121,7 +121,8 @@ export default function CheckinForm({ keyResults, onSubmit }: CheckinFormProps) 
                       onChange={(e) =>
                         updateEntry(index, 'confidence', Number(e.target.value))
                       }
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      className="absolute inset-0 w-full h-full cursor-pointer accent-[#3b82f6]"
+                      style={{ opacity: 1 }}
                       aria-label="自信度"
                     />
                   </div>
