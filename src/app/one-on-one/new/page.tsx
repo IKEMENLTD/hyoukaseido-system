@@ -15,6 +15,21 @@ interface MemberNestedRow {
   members: { id: string; name: string } | null;
 }
 
+interface LastOneOnOne {
+  meetingDate: string;
+  meetingType: string;
+  actionItems: string | null;
+  blockers: string | null;
+}
+
+interface OneOnOneRow {
+  member_id: string;
+  meeting_date: string;
+  meeting_type: string;
+  action_items: string | null;
+  blockers: string | null;
+}
+
 export default async function NewOneOnOnePage() {
   const member = await getCurrentMember();
   if (!member || !['G3', 'G4', 'G5'].includes(member.grade)) {
@@ -72,10 +87,42 @@ export default async function NewOneOnOnePage() {
     );
   }
 
+  // 各メンバーの最新1on1を取得
+  const lastOneOnOnes: Record<string, LastOneOnOne> = {};
+
+  if (teamMembers.length > 0) {
+    const memberIds = teamMembers.map((m) => m.id);
+
+    // 全メンバーの1on1を日付降順で取得し、各メンバーの最新1件を抽出
+    const { data: oneOnOneRows, error: oneOnOneErr } = await supabase
+      .from('one_on_ones')
+      .select('member_id, meeting_date, meeting_type, action_items, blockers')
+      .eq('manager_id', member.id)
+      .in('member_id', memberIds)
+      .order('meeting_date', { ascending: false });
+
+    if (oneOnOneErr) console.error('[DB] one_on_ones 取得エラー:', oneOnOneErr);
+
+    const rows = oneOnOneRows as OneOnOneRow[] | null;
+    const seen = new Set<string>();
+    for (const row of rows ?? []) {
+      if (!seen.has(row.member_id)) {
+        seen.add(row.member_id);
+        lastOneOnOnes[row.member_id] = {
+          meetingDate: row.meeting_date,
+          meetingType: row.meeting_type,
+          actionItems: row.action_items,
+          blockers: row.blockers,
+        };
+      }
+    }
+  }
+
   return (
     <OneOnOneNewClient
       managerId={member.id}
       teamMembers={teamMembers}
+      lastOneOnOnes={lastOneOnOnes}
     />
   );
 }

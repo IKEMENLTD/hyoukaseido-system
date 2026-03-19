@@ -25,9 +25,20 @@ interface CheckinEntry {
   blockers: string;
 }
 
+interface CheckinHistoryEntry {
+  date: string;
+  value: number;
+  confidence: number;
+}
+
+interface CheckinHistory {
+  [keyResultId: string]: CheckinHistoryEntry[];
+}
+
 interface CheckinPageClientProps {
   keyResults: KeyResultForCheckin[];
   memberId: string;
+  checkinHistory: CheckinHistory;
 }
 
 interface StatusMessage {
@@ -38,6 +49,7 @@ interface StatusMessage {
 export default function CheckinPageClient({
   keyResults,
   memberId,
+  checkinHistory,
 }: CheckinPageClientProps) {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<StatusMessage | null>(null);
@@ -145,7 +157,11 @@ export default function CheckinPageClient({
           </div>
         ) : (
           <div className={saving ? 'pointer-events-none opacity-60' : ''}>
-            <CheckinForm keyResults={keyResults} onSubmit={handleSubmit} />
+            <CheckinForm
+              keyResults={keyResults}
+              onSubmit={handleSubmit}
+              checkinHistory={checkinHistory}
+            />
           </div>
         )}
       </div>

@@ -18,9 +18,20 @@ interface CheckinEntry {
   blockers: string;
 }
 
+interface CheckinHistoryEntry {
+  date: string;
+  value: number;
+  confidence: number;
+}
+
+interface CheckinHistory {
+  [keyResultId: string]: CheckinHistoryEntry[];
+}
+
 interface CheckinFormProps {
   keyResults: KeyResultInput[];
   onSubmit?: (data: CheckinEntry[]) => void;
+  checkinHistory?: CheckinHistory;
 }
 
 function getProgressColor(ratio: number): string {
@@ -35,15 +46,57 @@ function getConfidenceColor(value: number): string {
   return '#ef4444';
 }
 
-export default function CheckinForm({ keyResults, onSubmit }: CheckinFormProps) {
+function formatShortDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
+function MiniTrendBar({
+  history,
+  targetValue,
+}: {
+  history: CheckinHistoryEntry[];
+  targetValue: number;
+}) {
+  if (history.length === 0) return null;
+
+  const maxHeight = 24;
+  const minHeight = 4;
+
+  return (
+    <div className="flex items-end gap-[2px] border border-[#1a1a1a] px-2 py-1 h-[36px]">
+      {history.map((entry, i) => {
+        const ratio = targetValue === 0 ? 0 : Math.min(entry.value / targetValue, 1);
+        const barHeight = Math.max(minHeight, Math.round(ratio * maxHeight));
+        return (
+          <div
+            key={`${entry.date}-${i}`}
+            className="w-[6px] bg-[#3b82f6]"
+            style={{ height: `${barHeight}px` }}
+            title={`${formatShortDate(entry.date)}: ${entry.value} (自信度${entry.confidence}%)`}
+          />
+        );
+      })}
+      <span className="text-[8px] text-[#525252] ml-1 self-end leading-none select-none">
+        右が最新
+      </span>
+    </div>
+  );
+}
+
+export default function CheckinForm({ keyResults, onSubmit, checkinHistory }: CheckinFormProps) {
   const [entries, setEntries] = useState<CheckinEntry[]>(
-    keyResults.map((kr) => ({
-      keyResultId: kr.id,
-      value: kr.currentValue,
-      confidence: 50,
-      note: '',
-      blockers: '',
-    }))
+    keyResults.map((kr) => {
+      const history = checkinHistory?.[kr.id] ?? [];
+      const lastEntry = history.length > 0 ? history[history.length - 1] : null;
+      return {
+        keyResultId: kr.id,
+        value: kr.currentValue,
+        confidence: lastEntry ? lastEntry.confidence : 50,
+        note: '',
+        blockers: '',
+      };
+    })
   );
 
   const updateEntry = useCallback(
@@ -77,6 +130,8 @@ export default function CheckinForm({ keyResults, onSubmit }: CheckinFormProps) 
           const entry = entries[index];
           const ratio = kr.targetValue === 0 ? 0 : Math.min(entry.value / kr.targetValue, 1);
           const percent = Math.round(ratio * 100);
+          const history = checkinHistory?.[kr.id] ?? [];
+          const lastCheckin = history.length > 0 ? history[history.length - 1] : null;
 
           return (
             <div key={kr.id} className="p-4 space-y-3">
@@ -86,6 +141,26 @@ export default function CheckinForm({ keyResults, onSubmit }: CheckinFormProps) 
                   目標: {kr.targetValue} {kr.unit}
                 </span>
               </div>
+
+              {/* 前回値 + ミニ推移 */}
+              {lastCheckin && (
+                <div className="flex items-center gap-4 flex-wrap">
+                  <div className="text-[10px] text-[#737373]">
+                    <span>
+                      前回 ({formatShortDate(lastCheckin.date)}): {lastCheckin.value} {kr.unit}
+                    </span>
+                    <span className="ml-2 text-[#525252]">
+                      自信度{lastCheckin.confidence}%
+                    </span>
+                  </div>
+                  {history.length >= 2 && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-[10px] text-[#525252]">推移:</span>
+                      <MiniTrendBar history={history} targetValue={kr.targetValue} />
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div>

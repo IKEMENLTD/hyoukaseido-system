@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentMember } from '@/lib/auth/get-member';
 import EvalRankBadge from '@/components/shared/EvalRankBadge';
 import PrintButton from './PrintButton';
+import ResultCsvButton from './ResultCsvButton';
 
 // -----------------------------------------------------------------------------
 // Supabase行データの型定義（generated typesがないためローカル定義）
@@ -217,6 +218,32 @@ export default async function ResultsPage() {
                 {half}
               </span>
             )}
+            <ResultCsvButton
+              periodName={periodName}
+              grade={grade}
+              totalScore={totalScore.toFixed(1)}
+              rank={rank}
+              quantitativeScore={String(quantitativeScore)}
+              qualitativeScore={String(qualitativeScore)}
+              valueScore={String(valueScore)}
+              salaryChange={salaryChange.toLocaleString()}
+              promotionEligibility={
+                promotionEligibility === 'immediate'
+                  ? '昇格検討対象'
+                  : promotionEligibility === 'candidate'
+                    ? '昇格候補'
+                    : promotionEligibility ?? 'なし'
+              }
+              kpiDetails={kpiScores.map((item) => {
+                const kpiItem = item.kpi_items[0] ?? null;
+                return {
+                  name: kpiItem?.name ?? '---',
+                  targetValue: String(item.target_value ?? 0) + (kpiItem?.measurement_unit ?? ''),
+                  actualValue: String(item.actual_value ?? 0) + (kpiItem?.measurement_unit ?? ''),
+                  achievementRate: String(item.achievement_rate ?? 0),
+                };
+              })}
+            />
             <PrintButton />
           </div>
         </div>

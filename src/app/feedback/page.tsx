@@ -12,6 +12,10 @@ import type { FeedbackTarget } from './FeedbackClient';
 interface FeedbackRow {
   id: string;
   total_score: number | null;
+  quantitative_score: number | null;
+  qualitative_score: number | null;
+  value_score: number | null;
+  phase_at_eval: string | null;
   rank: Rank | null;
   status: EvaluationStatus;
   evaluator_comment: string | null;
@@ -46,7 +50,7 @@ export default async function FeedbackPage() {
   const { data: rawTargets, error: rawTargetsErr } = await supabase
     .from('evaluations')
     .select(`
-      id, total_score, rank, status, evaluator_comment, next_actions, updated_at,
+      id, total_score, quantitative_score, qualitative_score, value_score, phase_at_eval, rank, status, evaluator_comment, next_actions, updated_at,
       members!evaluations_member_id_fkey (name, grade),
       divisions!evaluations_division_id_fkey (name)
     `)
@@ -62,6 +66,10 @@ export default async function FeedbackPage() {
       grade: row.members?.grade ?? 'G1',
       divisionName: row.divisions?.name ?? '---',
       totalScore: row.total_score ?? 0,
+      quantitativeScore: row.quantitative_score,
+      qualitativeScore: row.qualitative_score,
+      valueScore: row.value_score,
+      phase: row.phase_at_eval,
       rank: (row.rank as Rank) ?? 'B',
       status: row.status,
       feedbackDate: row.status === 'feedback_done' ? row.updated_at.split('T')[0] : null,

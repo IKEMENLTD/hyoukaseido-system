@@ -7,8 +7,10 @@
 
 import { useState, useCallback, useMemo } from 'react';
 import { calibrateEvaluation } from '@/lib/evaluation/actions';
+import { downloadCSV } from '@/lib/utils/csv-export';
 import EvalRankBadge from '@/components/shared/EvalRankBadge';
 import type { Rank } from '@/types/evaluation';
+import { SALARY_CHANGE } from '@/types/evaluation';
 
 // -----------------------------------------------------------------------------
 // 型定義
@@ -26,6 +28,8 @@ interface CalibrationEvaluation {
   totalScore: number;
   proposedRank: string;
   currentStatus: string;
+  salaryChangeRecommended: number | null;
+  promotionEligibility: string | null;
 }
 
 interface CalibrationProps {
@@ -131,6 +135,44 @@ export default function CalibrationClient({ evalPeriodName, evaluations }: Calib
     }
   }, [allRanksAssigned, evaluations, finalRanks]);
 
+  // CSV出力ハンドラ
+  const handleCsvExport = useCallback(() => {
+    const headers = [
+      '名前', '等級', '事業部', '評価者',
+      '定量スコア', '定性スコア', 'バリュースコア', '総合スコア',
+      '提案ランク', '最終ランク', '昇給額', '昇格適格性',
+    ];
+
+    const rows = evaluations.map((member) => {
+      const finalRank = finalRanks[member.id] ?? '';
+      const salaryChange = finalRank && isValidRank(finalRank)
+        ? String(SALARY_CHANGE[finalRank])
+        : member.salaryChangeRecommended !== null
+          ? String(member.salaryChangeRecommended)
+          : '';
+      const promotion = member.promotionEligibility ?? '';
+
+      return [
+        member.memberName,
+        member.grade,
+        member.divisionName,
+        member.evaluatorName,
+        String(member.quantitativeScore),
+        String(member.qualitativeScore),
+        String(member.valueScore),
+        member.totalScore.toFixed(1),
+        member.proposedRank,
+        finalRank,
+        salaryChange,
+        promotion,
+      ];
+    });
+
+    const today = new Date().toISOString().slice(0, 10);
+    const filename = `評価結果_${evalPeriodName}_${today}.csv`;
+    downloadCSV(filename, headers, rows);
+  }, [evaluations, finalRanks, evalPeriodName]);
+
   return (
     <div className="min-h-screen bg-[#050505] p-3 sm:p-6">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -148,6 +190,18 @@ export default function CalibrationClient({ evalPeriodName, evaluations }: Calib
             <span className="px-3 py-1 border border-[#333333] text-xs text-[#a3a3a3]">
               {evalPeriodName}
             </span>
+            <button
+              type="button"
+              onClick={handleCsvExport}
+              className="px-4 py-2 border border-[#333333] text-xs text-[#a3a3a3] font-bold hover:text-[#e5e5e5] hover:border-[#555555] transition-colors"
+            >
+              <span className="flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                  <path strokeLinecap="square" strokeLinejoin="miter" d="M12 5v14m0 0l-6-6m6 6l6-6M5 19h14" />
+                </svg>
+                CSV出力
+              </span>
+            </button>
             <button
               type="button"
               disabled={!allRanksAssigned || isSubmitting || submitSuccess}

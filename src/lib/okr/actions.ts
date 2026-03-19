@@ -103,6 +103,86 @@ export async function deleteObjective(
 }
 
 // -----------------------------------------------------------------------------
+// Key Result 編集
+// -----------------------------------------------------------------------------
+
+export async function updateKeyResult(
+  keyResultId: string,
+  data: { title?: string; targetValue?: number; unit?: string }
+): Promise<ActionResult> {
+  const member = await getCurrentMember();
+  if (!member) return { success: false, error: '認証が必要です' };
+
+  // バリデーション
+  if (data.title !== undefined) {
+    if (!data.title.trim() || data.title.length > 500) {
+      return { success: false, error: 'タイトルは1〜500文字で入力してください' };
+    }
+  }
+  if (data.targetValue !== undefined) {
+    if (!Number.isFinite(data.targetValue) || data.targetValue < 0) {
+      return { success: false, error: '目標値は0以上の数値で入力してください' };
+    }
+  }
+  if (data.unit !== undefined) {
+    if (!data.unit.trim() || data.unit.length > 50) {
+      return { success: false, error: '単位は1〜50文字で入力してください' };
+    }
+  }
+
+  const supabase = await createClient();
+
+  // KRからobjective_idを取得
+  const { data: kr, error: krErr } = await supabase
+    .from('okr_key_results')
+    .select('objective_id')
+    .eq('id', keyResultId)
+    .single();
+  if (krErr) console.error('[DB] okr_key_results 取得エラー:', krErr);
+
+  if (!kr) return { success: false, error: 'Key Resultが見つかりません' };
+
+  const typedKr = kr as { objective_id: string };
+
+  // 所有者チェック: ObjectiveのownerまたはG3+
+  const { data: objective, error: objErr } = await supabase
+    .from('okr_objectives')
+    .select('member_id')
+    .eq('id', typedKr.objective_id)
+    .single();
+  if (objErr) console.error('[DB] okr_objectives 取得エラー:', objErr);
+
+  if (!objective) return { success: false, error: 'OKRが見つかりません' };
+
+  const obj = objective as { member_id: string | null };
+  if (obj.member_id !== member.id && !['G3', 'G4', 'G5'].includes(member.grade)) {
+    return { success: false, error: '自分のOKRのみ編集可能です' };
+  }
+
+  // 更新データ構築
+  const updateData: Record<string, string | number> = {};
+  if (data.title !== undefined) updateData.title = data.title.trim();
+  if (data.targetValue !== undefined) updateData.target_value = data.targetValue;
+  if (data.unit !== undefined) updateData.unit = data.unit.trim();
+
+  if (Object.keys(updateData).length === 0) {
+    return { success: false, error: '更新するデータがありません' };
+  }
+
+  const { error } = await supabase
+    .from('okr_key_results')
+    .update(updateData)
+    .eq('id', keyResultId);
+
+  if (error) {
+    console.error('key_result update error:', error.message);
+    return { success: false, error: '更新に失敗しました' };
+  }
+
+  return { success: true };
+}
+
+// -----------------------------------------------------------------------------
 // 1on1記録 編集
 // -----------------------------------------------------------------------------
 

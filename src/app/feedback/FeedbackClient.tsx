@@ -21,6 +21,10 @@ interface FeedbackTarget {
   grade: Grade;
   divisionName: string;
   totalScore: number;
+  quantitativeScore: number | null;
+  qualitativeScore: number | null;
+  valueScore: number | null;
+  phase: string | null;
   rank: Rank;
   status: EvaluationStatus;
   feedbackDate: string | null;
@@ -31,6 +35,41 @@ interface FeedbackTarget {
 interface FeedbackClientProps {
   targets: FeedbackTarget[];
   isAdmin: boolean;
+}
+
+// -----------------------------------------------------------------------------
+// スコアバー
+// -----------------------------------------------------------------------------
+
+function ScoreBar({ label, score }: { label: string; score: number | null }) {
+  if (score === null || score === undefined) {
+    return (
+      <div className="flex items-center gap-3">
+        <span className="text-xs text-[#737373] w-24 shrink-0">{label}</span>
+        <span className="text-xs text-[#555555]">未評価</span>
+      </div>
+    );
+  }
+
+  const pct = Math.min(Math.max(score, 0), 100);
+
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-xs text-[#737373] w-24 shrink-0">{label}</span>
+      <span className="text-sm text-[#e5e5e5] w-12 text-right shrink-0">
+        {score.toFixed(1)}
+      </span>
+      <div className="flex-1 h-2 bg-[#1a1a1a]">
+        <div
+          className="h-full bg-[#3b82f6]"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <span className="text-xs text-[#555555] w-10 text-right shrink-0">
+        {Math.round(pct)}%
+      </span>
+    </div>
+  );
 }
 
 // -----------------------------------------------------------------------------
@@ -207,6 +246,27 @@ export default function FeedbackClient({ targets: initialTargets, isAdmin }: Fee
                   </div>
                 ) : isFormOpen ? (
                   <div className="space-y-4">
+                    {/* 評価サマリーパネル */}
+                    <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4">
+                      <div className="text-xs text-[#737373] uppercase tracking-wider mb-3">
+                        評価サマリー
+                      </div>
+                      <div className="flex items-center gap-4 mb-4">
+                        <span className="text-lg font-bold text-[#e5e5e5]">
+                          総合: {target.totalScore.toFixed(1)}点
+                        </span>
+                        <EvalRankBadge rank={target.rank} size="md" />
+                        <span className="px-2 py-0.5 border border-[#333333] text-xs text-[#a3a3a3]">
+                          {target.grade}
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        <ScoreBar label="定量 (KPI)" score={target.quantitativeScore} />
+                        <ScoreBar label="定性 (行動)" score={target.qualitativeScore} />
+                        <ScoreBar label="バリュー" score={target.valueScore} />
+                      </div>
+                    </div>
+
                     {/* フィードバックコメント */}
                     <div>
                       <label className="block text-xs text-[#a3a3a3] mb-1">

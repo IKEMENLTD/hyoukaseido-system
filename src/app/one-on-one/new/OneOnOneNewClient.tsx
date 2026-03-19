@@ -45,9 +45,17 @@ const MEETING_TYPE_OPTIONS: ReadonlyArray<{
 // 型定義
 // -----------------------------------------------------------------------------
 
+interface LastOneOnOne {
+  meetingDate: string;
+  meetingType: string;
+  actionItems: string | null;
+  blockers: string | null;
+}
+
 interface OneOnOneNewClientProps {
   managerId: string;
   teamMembers: Array<{ id: string; name: string }>;
+  lastOneOnOnes: Record<string, LastOneOnOne>;
 }
 
 interface OkrKeyResultData {
@@ -85,9 +93,18 @@ interface FormMessage {
 // コンポーネント
 // -----------------------------------------------------------------------------
 
+/** ミーティング種別の表示名マッピング */
+const MEETING_TYPE_LABELS: Record<string, string> = {
+  weekly_checkin: '週次チェックイン',
+  monthly_1on1: '月次1on1',
+  quarterly_review: '四半期レビュー',
+  semi_annual_feedback: '半期フィードバック',
+};
+
 export default function OneOnOneNewClient({
   managerId,
   teamMembers,
+  lastOneOnOnes,
 }: OneOnOneNewClientProps) {
   const router = useRouter();
 
@@ -328,6 +345,57 @@ export default function OneOnOneNewClient({
                 ))}
               </div>
             </div>
+
+            {/* 前回の1on1パネル */}
+            {selectedMemberId && (
+              <div className="border border-[#1a1a1a] bg-[#0a0a0a]">
+                {lastOneOnOnes[selectedMemberId] ? (
+                  <>
+                    <div className="px-4 py-2 border-b border-[#1a1a1a] flex items-center gap-2">
+                      <span className="text-xs text-[#737373]">
+                        前回の1on1 ({lastOneOnOnes[selectedMemberId].meetingDate})
+                      </span>
+                      <span className="text-[10px] text-[#404040] border border-[#333333] px-1.5 py-0.5">
+                        {MEETING_TYPE_LABELS[lastOneOnOnes[selectedMemberId].meetingType] ?? lastOneOnOnes[selectedMemberId].meetingType}
+                      </span>
+                    </div>
+                    <div className="p-4 space-y-3">
+                      {lastOneOnOnes[selectedMemberId].actionItems && (
+                        <div>
+                          <div className="text-xs text-[#737373] mb-1">
+                            アクションアイテム
+                          </div>
+                          <div className="text-sm text-[#a3a3a3] whitespace-pre-wrap">
+                            {lastOneOnOnes[selectedMemberId].actionItems}
+                          </div>
+                        </div>
+                      )}
+                      {lastOneOnOnes[selectedMemberId].blockers && (
+                        <div>
+                          <div className="text-xs text-[#737373] mb-1">
+                            課題 / ブロッカー
+                          </div>
+                          <div className="text-sm text-[#a3a3a3] whitespace-pre-wrap">
+                            {lastOneOnOnes[selectedMemberId].blockers}
+                          </div>
+                        </div>
+                      )}
+                      {!lastOneOnOnes[selectedMemberId].actionItems && !lastOneOnOnes[selectedMemberId].blockers && (
+                        <div className="text-xs text-[#404040]">
+                          前回の1on1にアクションアイテム・ブロッカーの記録はありません
+                        </div>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div className="px-4 py-3">
+                    <span className="text-xs text-[#404040]">
+                      このメンバーとの1on1記録はありません
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* OKR進捗 */}
             <div>

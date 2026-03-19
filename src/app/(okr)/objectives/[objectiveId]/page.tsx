@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentMember } from '@/lib/auth/get-member';
 import { notFound } from 'next/navigation';
 import ObjectiveActions from './ObjectiveActions';
+import KeyResultEditor from './KeyResultEditor';
 
 // ---------------------------------------------------------------------------
 // 型定義
@@ -57,22 +58,6 @@ interface KeyResult {
   confidence: number;
   finalScore: number | null;
   checkins: Checkin[];
-}
-
-// ---------------------------------------------------------------------------
-// ヘルパー関数
-// ---------------------------------------------------------------------------
-
-function getProgressColor(ratio: number): string {
-  if (ratio >= 0.7) return 'bg-[#3b82f6]';
-  if (ratio >= 0.4) return 'bg-[#22d3ee]';
-  return 'bg-[#ef4444]';
-}
-
-function getConfidenceColor(confidence: number): string {
-  if (confidence >= 70) return 'text-[#22d3ee]';
-  if (confidence >= 40) return 'text-[#f59e0b]';
-  return 'text-[#ef4444]';
 }
 
 // ---------------------------------------------------------------------------
@@ -199,69 +184,16 @@ export default async function ObjectiveDetailPage(props: ObjectiveDetailPageProp
 
         {/* Key Results */}
         <div className="space-y-4">
-          {keyResults.map((kr) => {
-            const ratio = kr.targetValue === 0 ? 0 : Math.min(kr.currentValue / kr.targetValue, 1);
-            const percent = Math.round(ratio * 100);
-
-            return (
-              <div key={kr.id} className="border border-[#1a1a1a] bg-[#0a0a0a]">
-                {/* KRヘッダー */}
-                <div className="border-b border-[#1a1a1a] px-4 py-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm text-[#e5e5e5] font-medium">
-                      {kr.title}
-                    </h3>
-                    <div className="flex items-center gap-4">
-                      <span className="text-sm text-[#a3a3a3]">
-                        {kr.currentValue}/{kr.targetValue} {kr.unit}
-                      </span>
-                      <span className={`text-sm font-bold ${getConfidenceColor(kr.confidence)}`}>
-                        自信度 {kr.confidence}%
-                      </span>
-                    </div>
-                  </div>
-                  <div className="mt-2 h-2 bg-[#1a1a1a]">
-                    <div
-                      className={`h-full ${getProgressColor(ratio)}`}
-                      style={{ width: `${percent}%` }}
-                    />
-                  </div>
-                </div>
-
-                {/* チェックイン履歴 */}
-                <div className="px-4 py-3">
-                  <div className="text-xs text-[#737373] uppercase tracking-wider mb-2">
-                    チェックイン履歴
-                  </div>
-                  {kr.checkins.length === 0 ? (
-                    <p className="text-xs text-[#737373]">チェックインなし</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {kr.checkins.map((checkin) => (
-                        <div
-                          key={checkin.date}
-                          className="flex items-center gap-4 py-1 border-b border-[#111111] last:border-b-0"
-                        >
-                          <span className="text-xs text-[#737373] w-24 flex-shrink-0">
-                            {checkin.date}
-                          </span>
-                          <span className="text-xs text-[#e5e5e5] font-medium w-16 flex-shrink-0">
-                            {checkin.value} {kr.unit}
-                          </span>
-                          <span className={`text-xs w-12 flex-shrink-0 ${getConfidenceColor(checkin.confidence)}`}>
-                            {checkin.confidence}%
-                          </span>
-                          <span className="text-xs text-[#a3a3a3] truncate">
-                            {checkin.note}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+          {keyResults.map((kr) => (
+            <KeyResultEditor
+              key={kr.id}
+              keyResult={kr}
+              canEdit={
+                (typedObjective as unknown as { member_id: string | null }).member_id === member.id
+                || ['G3', 'G4', 'G5'].includes(member.grade)
+              }
+            />
+          ))}
         </div>
       </div>
     </div>

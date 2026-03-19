@@ -63,6 +63,7 @@ export default async function CalibrationPage() {
     .select(`
       id, quantitative_score, qualitative_score, value_score,
       total_score, rank, status, grade_at_eval,
+      salary_change_recommended, promotion_eligibility,
       members!evaluations_member_id_fkey (name),
       divisions (name),
       evaluator:members!evaluations_evaluator_id_fkey (name)
@@ -115,6 +116,8 @@ export default async function CalibrationPage() {
       totalScore: (e.total_score as number) ?? 0,
       proposedRank: (e.rank as string) ?? '',
       currentStatus: e.status as string,
+      salaryChangeRecommended: (e.salary_change_recommended as number | null) ?? null,
+      promotionEligibility: (e.promotion_eligibility as string | null) ?? null,
     };
   });
 
