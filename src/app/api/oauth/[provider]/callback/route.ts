@@ -9,6 +9,7 @@ import { isValidProvider, exchangeCode, getProviderProfile } from '@/lib/oauth/p
 import type { OAuthProvider } from '@/lib/oauth/providers';
 import { verifyOAuthState } from '@/lib/oauth/state';
 import { encryptToken } from '@/lib/crypto/token-encryption';
+import { createClient } from '@/lib/supabase/server';
 import { createServiceRoleClient } from '@/lib/supabase/service-role';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
@@ -112,6 +113,28 @@ export async function GET(
     if (verified.provider !== provider) {
       return NextResponse.redirect(
         `${APP_URL}/profile?error=provider_mismatch`
+      );
+    }
+
+    // セッションユーザーと state 内の memberId の一致検証
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.redirect(
+        `${APP_URL}/profile?error=user_mismatch`
+      );
+    }
+
+    const { data: sessionMember } = await supabase
+      .from('members')
+      .select('id')
+      .eq('auth_user_id', user.id)
+      .single();
+
+    if (!sessionMember || (sessionMember as { id: string }).id !== verified.memberId) {
+      return NextResponse.redirect(
+        `${APP_URL}/profile?error=user_mismatch`
       );
     }
 

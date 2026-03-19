@@ -104,3 +104,74 @@ CREATE POLICY "quarterly_bonuses_update" ON quarterly_bonuses
       AND target.org_id = caller.org_id
     )
   );
+
+-- ---------------------------------------------------------------------------
+-- M3: okr_objectives INSERT - G3は自事業部メンバーのみ、G4/G5は同組織全メンバー
+-- 攻撃: G3マネージャーが他部署メンバーのOKRを作成できてしまう
+-- 対策: G3は division_members 経由で同事業部チェック、G4/G5は org_id チェック
+-- ---------------------------------------------------------------------------
+
+DROP POLICY IF EXISTS "okr_objectives_insert" ON okr_objectives;
+CREATE POLICY "okr_objectives_insert" ON okr_objectives
+  FOR INSERT WITH CHECK (
+    -- 自分自身のOKR
+    member_id = (SELECT id FROM members WHERE auth_user_id = auth.uid())
+    OR
+    -- G4/G5: 同一組織の全メンバー
+    (
+      EXISTS (
+        SELECT 1 FROM members WHERE auth_user_id = auth.uid() AND grade IN ('G4', 'G5')
+      )
+      AND EXISTS (
+        SELECT 1 FROM members target
+        JOIN members caller ON caller.auth_user_id = auth.uid()
+        WHERE target.id = okr_objectives.member_id
+        AND target.org_id = caller.org_id
+      )
+    )
+    OR
+    -- G3: 自事業部のメンバーのみ
+    (
+      EXISTS (
+        SELECT 1 FROM members WHERE auth_user_id = auth.uid() AND grade = 'G3'
+      )
+      AND EXISTS (
+        SELECT 1 FROM division_members dm_target
+        JOIN division_members dm_caller ON dm_caller.division_id = dm_target.division_id
+        JOIN members caller ON caller.id = dm_caller.member_id
+        WHERE dm_target.member_id = okr_objectives.member_id
+        AND caller.auth_user_id = auth.uid()
+      )
+    )
+  );
+
+-- ---------------------------------------------------------------------------
+-- win_sessions / win_session_entries: 同一組織メンバーのみ閲覧可
+-- 現状: SELECT USING (true) で全ユーザーが全組織のデータを閲覧可能
+-- 対策: created_by と同一 org_id のメンバーのみ閲覧可
+-- ---------------------------------------------------------------------------
+
+-- win_sessions: 同一組織メンバーのみ閲覧可
+DROP POLICY IF EXISTS "win_sessions_select" ON win_sessions;
+CREATE POLICY "win_sessions_select" ON win_sessions
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM members m1
+      JOIN members m2 ON m1.org_id = m2.org_id
+      WHERE m1.auth_user_id = auth.uid()
+      AND m2.id = win_sessions.created_by
+    )
+  );
+
+-- win_session_entries: セッション作成者と同組織のみ
+DROP POLICY IF EXISTS "win_session_entries_select" ON win_session_entries;
+CREATE POLICY "win_session_entries_select" ON win_session_entries
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM win_sessions ws
+      JOIN members creator ON creator.id = ws.created_by
+      JOIN members caller ON caller.auth_user_id = auth.uid()
+      WHERE ws.id = win_session_entries.session_id
+      AND creator.org_id = caller.org_id
+    )
+  );

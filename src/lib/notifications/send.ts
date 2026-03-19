@@ -128,10 +128,11 @@ async function sendToChannel(
     });
 
     if (!response.ok) {
+      console.error(`[通知] Webhook送信エラー: HTTP ${response.status}: ${response.statusText}`);
       return {
         channelId: channel.id,
         success: false,
-        error: `HTTP ${response.status}: ${response.statusText}`,
+        error: '送信に失敗しました',
       };
     }
 

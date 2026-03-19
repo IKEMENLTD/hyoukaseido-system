@@ -51,7 +51,8 @@ async function getOrCreateDmRoom(
 
     if (!response.ok) {
       const errorText = await response.text();
-      return { roomId: '', error: `Room creation failed: HTTP ${response.status}: ${errorText}` };
+      console.error(`[通知] ChatWork room creation error: HTTP ${response.status}: ${errorText}`);
+      return { roomId: '', error: 'DMルームの作成に失敗しました' };
     }
 
     const data = (await response.json()) as ChatworkCreateRoomResponse;
@@ -159,10 +160,11 @@ export async function sendChatworkDM(
 
     if (!response.ok) {
       const errorText = await response.text();
+      console.error(`[通知] ChatWork DM送信エラー: HTTP ${response.status}: ${errorText}`);
       return {
         channel_id: channelId,
         success: false,
-        error: `HTTP ${response.status}: ${errorText}`,
+        error: '送信に失敗しました',
       };
     }
 

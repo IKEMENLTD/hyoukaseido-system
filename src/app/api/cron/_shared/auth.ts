@@ -17,7 +17,9 @@ export function verifyCronAuth(request: NextRequest): boolean {
   const authHeader = request.headers.get('authorization');
   if (!authHeader) return false;
 
-  const token = authHeader.replace('Bearer ', '');
+  const bearerMatch = authHeader.trim().match(/^Bearer\s+(.+)$/i);
+  if (!bearerMatch) return false;
+  const token = bearerMatch[1].trim();
   const secret = process.env.CRON_SECRET;
   if (!secret) return false;
 

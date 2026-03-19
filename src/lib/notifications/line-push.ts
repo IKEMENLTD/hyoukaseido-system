@@ -55,10 +55,11 @@ export async function sendLinePush(
 
     if (!response.ok) {
       const errorText = await response.text();
+      console.error(`[通知] LINE Push送信エラー: HTTP ${response.status}: ${errorText}`);
       return {
         channel_id: `line_dm:${lineUserId}`,
         success: false,
-        error: `HTTP ${response.status}: ${errorText}`,
+        error: '送信に失敗しました',
       };
     }
 

@@ -67,9 +67,10 @@ export async function refreshChatworkToken(
 
     if (!response.ok) {
       const errorText = await response.text();
+      console.error(`[OAuth] Token refresh error: HTTP ${response.status}: ${errorText}`);
       return {
         success: false,
-        error: `Token refresh failed: HTTP ${response.status}: ${errorText}`,
+        error: 'トークンの更新に失敗しました',
       };
     }
 
