@@ -7,6 +7,7 @@
 
 import { useState, useCallback } from 'react';
 import { saveSelfValueScores } from '@/lib/evaluation/actions';
+import { useAutoSaveDraft } from '@/hooks/useAutoSaveDraft';
 
 // ---------------------------------------------------------------------------
 // 型定義
@@ -41,6 +42,14 @@ interface ValueRowState {
 }
 
 // ---------------------------------------------------------------------------
+// ヘルパー
+// ---------------------------------------------------------------------------
+
+function formatTime(date: Date): string {
+  return date.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+}
+
+// ---------------------------------------------------------------------------
 // コンポーネント
 // ---------------------------------------------------------------------------
 
@@ -65,6 +74,25 @@ export default function SelfValuesForm({
   const [rows, setRows] = useState<Record<string, ValueRowState>>(initialRows);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // --- 自動下書き保存 ---
+  const draftKey = `draft-self-values-${evaluationId}`;
+  const { lastSaved, clearDraft, restoredData, dismissRestore } =
+    useAutoSaveDraft<Record<string, ValueRowState>>(draftKey, rows);
+
+  // 下書き復元処理（派生値）
+  const showRestoreBanner = restoredData !== null && !isReadonly;
+
+  const handleRestore = useCallback(() => {
+    if (restoredData !== null) {
+      setRows(restoredData);
+    }
+    dismissRestore();
+  }, [restoredData, dismissRestore]);
+
+  const handleDismissRestore = useCallback(() => {
+    dismissRestore();
+  }, [dismissRestore]);
 
   const setScore = useCallback((itemId: string, score: number) => {
     setRows((prev) => ({
@@ -97,12 +125,13 @@ export default function SelfValuesForm({
 
     if (result.success) {
       setMessage({ type: 'success', text: 'バリュー評価を保存しました' });
+      clearDraft();
     } else {
       setMessage({ type: 'error', text: result.error ?? '保存に失敗しました' });
     }
 
     setSaving(false);
-  }, [evaluationId, valueItems, rows]);
+  }, [evaluationId, valueItems, rows, clearDraft]);
 
   const completedCount = valueItems.filter((item) => rows[item.id].self_score !== null).length;
   const totalSelfScore = valueItems.reduce((sum, item) => sum + (rows[item.id].self_score ?? 0), 0);
@@ -119,11 +148,42 @@ export default function SelfValuesForm({
           <p className="text-sm text-[#737373] mt-1">
             企業バリューへの貢献度を自己評価してください
           </p>
+          {/* 自動保存ステータス */}
+          {!isReadonly && lastSaved && (
+            <p className="text-[10px] text-[#404040] mt-1">
+              下書き自動保存済み ({formatTime(lastSaved)})
+            </p>
+          )}
         </div>
         <span className="px-3 py-1 border border-[#333333] text-xs text-[#a3a3a3]">
           入力済: {completedCount} / {valueItems.length}
         </span>
       </div>
+
+      {/* 下書き復元バナー */}
+      {showRestoreBanner && (
+        <div className="border border-[#333333] bg-[#0a0a0a] px-4 py-3 flex items-center justify-between">
+          <span className="text-xs text-[#a3a3a3]">
+            前回の下書きがあります。復元しますか？
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleRestore}
+              className="px-3 py-1 text-xs font-bold bg-[#3b82f6] text-[#050505] hover:bg-[#2563eb] transition-colors"
+            >
+              復元する
+            </button>
+            <button
+              type="button"
+              onClick={handleDismissRestore}
+              className="px-3 py-1 text-xs border border-[#333333] text-[#737373] hover:border-[#555555] transition-colors"
+            >
+              破棄
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 説明 */}
       <div className="border border-[#1a1a1a] bg-[#0a0a0a] px-4 py-3">

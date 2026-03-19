@@ -14,6 +14,7 @@ import type {
   Rank,
 } from '@/types/evaluation';
 import EvalRankBadge from '@/components/shared/EvalRankBadge';
+import DeadlineBanner from '@/components/shared/DeadlineBanner';
 
 // -----------------------------------------------------------------------------
 // 定数
@@ -295,6 +296,11 @@ export default async function PeriodPage(props: PeriodPageProps) {
           </span>
         </div>
 
+        {/* 期限バナー: 上長評価フェーズの場合のみ表示 */}
+        {evalPeriod.status === 'manager_eval' && (
+          <DeadlineBanner endDate={evalPeriod.end_date} />
+        )}
+
         {/* マネージャー情報 */}
         <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4">
           <div className="flex items-center justify-between">
@@ -382,11 +388,33 @@ export default async function PeriodPage(props: PeriodPageProps) {
           </div>
         </div>
 
+        {/* 自己評価進捗バー */}
+        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-xs text-[#737373] uppercase tracking-wider">
+              自己評価完了
+            </div>
+            <div className="text-sm text-[#e5e5e5]">
+              <span className="text-[#3b82f6] font-bold">{selfSubmittedCount}</span>
+              <span className="text-[#737373]"> / {totalCount}名完了</span>
+              <span className="text-[#737373] ml-2">
+                ({totalCount > 0 ? Math.round((selfSubmittedCount / totalCount) * 100) : 0}%)
+              </span>
+            </div>
+          </div>
+          <div className="w-full h-2 bg-[#1a1a1a]">
+            <div
+              className="h-2 bg-[#3b82f6] transition-all"
+              style={{ width: `${totalCount > 0 ? Math.round((selfSubmittedCount / totalCount) * 100) : 0}%` }}
+            />
+          </div>
+        </div>
+
         {/* 上長評価進捗バー */}
         <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="text-xs text-[#737373] uppercase tracking-wider">
-              上長評価進捗
+              上長評価完了
             </div>
             <div className="text-sm text-[#e5e5e5]">
               <span className="text-[#22d3ee] font-bold">{managerDoneCount}</span>

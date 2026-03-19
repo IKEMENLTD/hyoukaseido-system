@@ -6,6 +6,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentMember } from '@/lib/auth/get-member';
 import { getOrCreateEvaluation } from '@/lib/evaluation/get-or-create-evaluation';
+import DeadlineBanner from '@/components/shared/DeadlineBanner';
 import type { EvalPeriodStatus } from '@/types/evaluation';
 
 const STATUS_CONFIG: Record<EvalPeriodStatus, { label: string; color: string }> = {
@@ -176,6 +177,11 @@ export default async function SelfEvalPage(props: SelfEvalPageProps) {
           </span>
         </div>
 
+        {/* 期限バナー: 自己評価フェーズかつ未提出の場合のみ表示 */}
+        {evalPeriod.status === 'self_eval' && !isSubmitted && (
+          <DeadlineBanner endDate={evalPeriod.end_date} />
+        )}
+
         {/* 自分の情報 */}
         <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4">
           <div className="flex items-center justify-between">
@@ -206,6 +212,49 @@ export default async function SelfEvalPage(props: SelfEvalPageProps) {
             <span>ステータス: {isSubmitted ? '提出済' : '下書き'}</span>
           </div>
         </div>
+
+        {/* セクション進捗バー */}
+        {(() => {
+          const completedCount = evalSections.filter((s) => s.completed).length;
+          return (
+            <div className="border border-[#1a1a1a] bg-[#0a0a0a] px-4 py-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-xs text-[#737373] uppercase tracking-wider">
+                  入力進捗
+                </div>
+                <div className="text-sm text-[#e5e5e5]">
+                  <span className="text-[#3b82f6] font-bold">{completedCount}</span>
+                  <span className="text-[#737373]"> / {evalSections.length} セクション完了</span>
+                </div>
+              </div>
+              <div className="grid grid-cols-4 gap-2">
+                {evalSections.map((section) => (
+                  <div key={section.label}>
+                    <div
+                      className={`h-2 ${
+                        section.completed ? 'bg-[#3b82f6]' : 'bg-[#1a1a1a]'
+                      }`}
+                    />
+                    <div className="flex items-center gap-1.5 mt-2">
+                      <div
+                        className={`w-2 h-2 flex-shrink-0 ${
+                          section.completed ? 'bg-[#3b82f6]' : 'bg-[#1a1a1a]'
+                        }`}
+                      />
+                      <span
+                        className={`text-[10px] ${
+                          section.completed ? 'text-[#e5e5e5]' : 'text-[#404040]'
+                        }`}
+                      >
+                        {section.label}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* 提出済みの場合の通知 */}
         {isSubmitted && (

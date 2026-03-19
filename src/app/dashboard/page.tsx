@@ -4,9 +4,10 @@
 // Supabase統合: リアルデータ取得
 // =============================================================================
 
-import type { Rank, Phase, EvalPeriodStatus } from '@/types/evaluation';
+import type { Rank, Phase, EvalPeriodStatus, EvaluationStatus } from '@/types/evaluation';
 import { createClient } from '@/lib/supabase/server';
 import { getMemberResult } from '@/lib/auth/get-member';
+import ActionItems from '@/components/dashboard/ActionItems';
 import CompanyOverview from '@/components/dashboard/CompanyOverview';
 import DivisionComparison from '@/components/dashboard/DivisionComparison';
 import CrossSellMap from '@/components/dashboard/CrossSellMap';
@@ -50,6 +51,27 @@ interface EvaluationRow {
   total_score: number | null;
   rank: Rank | null;
   promotion_eligibility: string | null;
+  status?: EvaluationStatus;
+}
+
+/** アクションアイテム用: 部下評価の行データ */
+interface SubordinateEvalRow {
+  id: string;
+  eval_period_id: string;
+  member_id: string;
+  status: EvaluationStatus;
+  members: { name: string } | null;
+}
+
+/** アクションアイテム用: 1on1の最新日付 */
+interface OneOnOneRow {
+  member_id: string;
+  meeting_date: string;
+}
+
+/** アクションアイテム用: チェックインの最新日付 */
+interface CheckinRow {
+  checkin_date: string;
 }
 
 interface CrossSellTossRow {
@@ -181,6 +203,9 @@ export default async function DashboardPage() {
     evalPeriodsResult,
     evaluationsResult,
     tossesResult,
+    activePeriodsResult,
+    myEvalsResult,
+    latestCheckinResult,
   ] = await Promise.all([
     supabase
       .from('divisions')
@@ -200,10 +225,28 @@ export default async function DashboardPage() {
       .limit(1),
     supabase
       .from('evaluations')
-      .select('id, eval_period_id, member_id, division_id, total_score, rank, promotion_eligibility'),
+      .select('id, eval_period_id, member_id, division_id, total_score, rank, promotion_eligibility, status'),
     supabase
       .from('crosssell_tosses')
       .select('id, route_id, status, gross_profit, toss_bonus, receive_bonus, crosssell_routes(from_division_id, to_division_id)'),
+    // アクションアイテム用: アクティブな評価期間
+    supabase
+      .from('eval_periods')
+      .select('id, name, status')
+      .in('status', ['target_setting', 'self_eval', 'manager_eval', 'calibration', 'feedback'])
+      .eq('org_id', currentMember.org_id),
+    // アクションアイテム用: 自分の評価レコード
+    supabase
+      .from('evaluations')
+      .select('id, eval_period_id, status')
+      .eq('member_id', currentMember.id),
+    // アクションアイテム用: 自分の最新OKRチェックイン
+    supabase
+      .from('okr_checkins')
+      .select('checkin_date')
+      .eq('member_id', currentMember.id)
+      .order('checkin_date', { ascending: false })
+      .limit(1),
   ]);
 
   if (divisionsResult.error) console.error('[DB] divisions 取得エラー:', divisionsResult.error);
@@ -212,6 +255,9 @@ export default async function DashboardPage() {
   if (evalPeriodsResult.error) console.error('[DB] eval_periods 取得エラー:', evalPeriodsResult.error);
   if (evaluationsResult.error) console.error('[DB] evaluations 取得エラー:', evaluationsResult.error);
   if (tossesResult.error) console.error('[DB] crosssell_tosses 取得エラー:', tossesResult.error);
+  if (activePeriodsResult.error) console.error('[DB] active eval_periods 取得エラー:', activePeriodsResult.error);
+  if (myEvalsResult.error) console.error('[DB] my evaluations 取得エラー:', myEvalsResult.error);
+  if (latestCheckinResult.error) console.error('[DB] okr_checkins 取得エラー:', latestCheckinResult.error);
 
   // -- null安全: エラー時は空配列にフォールバック --
   const divisions = (divisionsResult.data ?? []) as DivisionRow[];
@@ -220,6 +266,93 @@ export default async function DashboardPage() {
   const evalPeriods = (evalPeriodsResult.data ?? []) as EvalPeriodRow[];
   const evaluations = (evaluationsResult.data ?? []) as EvaluationRow[];
   const tosses = (tossesResult.data ?? []) as unknown as CrossSellTossRow[];
+
+  // -- アクションアイテム用データ --
+  const activePeriods = (activePeriodsResult.data ?? []) as Array<{
+    id: string;
+    name: string;
+    status: EvalPeriodStatus;
+  }>;
+  const myEvaluations = (myEvalsResult.data ?? []) as Array<{
+    id: string;
+    eval_period_id: string;
+    status: EvaluationStatus;
+  }>;
+  const latestCheckins = (latestCheckinResult.data ?? []) as CheckinRow[];
+  const latestCheckinDate = latestCheckins.length > 0
+    ? latestCheckins[0].checkin_date
+    : null;
+
+  // 部下の評価データ・1on1データ取得（マネージャー/管理者のみ）
+  // 自分の事業部に所属するメンバーの評価を取得
+  let subordinateEvaluations: Array<{
+    id: string;
+    eval_period_id: string;
+    member_id: string;
+    member_name: string;
+    status: EvaluationStatus;
+  }> = [];
+  let subordinateLastOneOnOne: Array<{
+    member_id: string;
+    member_name: string;
+    last_meeting_date: string | null;
+  }> = [];
+
+  if (currentMember.division_ids.length > 0) {
+    const [subEvalsResult, oneOnOneResult] = await Promise.all([
+      supabase
+        .from('evaluations')
+        .select('id, eval_period_id, member_id, status, members(name)')
+        .in('division_id', currentMember.division_ids)
+        .neq('member_id', currentMember.id),
+      supabase
+        .from('one_on_ones')
+        .select('member_id, meeting_date')
+        .eq('manager_id', currentMember.id)
+        .order('meeting_date', { ascending: false }),
+    ]);
+    if (subEvalsResult.error) console.error('[DB] subordinate evaluations 取得エラー:', subEvalsResult.error);
+    if (oneOnOneResult.error) console.error('[DB] one_on_ones 取得エラー:', oneOnOneResult.error);
+
+    const subEvalsRaw = (subEvalsResult.data ?? []) as unknown as SubordinateEvalRow[];
+    subordinateEvaluations = subEvalsRaw.map((e) => ({
+      id: e.id,
+      eval_period_id: e.eval_period_id,
+      member_id: e.member_id,
+      member_name: e.members?.name ?? '不明',
+      status: e.status,
+    }));
+
+    // 部下ごとの最新1on1日付を算出
+    const oneOnOneRows = (oneOnOneResult.data ?? []) as OneOnOneRow[];
+    const latestOneOnOneMap = new Map<string, string>();
+    for (const row of oneOnOneRows) {
+      if (!latestOneOnOneMap.has(row.member_id)) {
+        latestOneOnOneMap.set(row.member_id, row.meeting_date);
+      }
+    }
+
+    // 自分の事業部の部下メンバー一覧を取得
+    const subordinateMemberIds = new Set<string>();
+    for (const dm of (divisionMembersResult.data ?? []) as DivisionMemberRow[]) {
+      if (
+        currentMember.division_ids.includes(dm.division_id) &&
+        dm.member_id !== currentMember.id
+      ) {
+        subordinateMemberIds.add(dm.member_id);
+      }
+    }
+
+    const membersData = (membersResult.data ?? []) as MemberRow[];
+    subordinateLastOneOnOne = Array.from(subordinateMemberIds).map((memberId) => {
+      const memberData = membersData.find((m) => m.id === memberId);
+      return {
+        member_id: memberId,
+        member_name: memberData?.name ?? '不明',
+        last_meeting_date: latestOneOnOneMap.get(memberId) ?? null,
+      };
+    });
+  }
 
   // -- 現在の評価期間 --
   const currentPeriod = evalPeriods[0] ?? null;
@@ -375,6 +508,19 @@ export default async function DashboardPage() {
             )}
           </div>
         </div>
+
+        {/* やるべきことリスト */}
+        <ActionItems
+          memberGrade={currentMember.grade}
+          memberId={currentMember.id}
+          divisionIds={currentMember.division_ids}
+          orgId={currentMember.org_id}
+          evalPeriods={activePeriods}
+          myEvaluations={myEvaluations}
+          subordinateEvaluations={subordinateEvaluations}
+          latestCheckinDate={latestCheckinDate}
+          subordinateLastOneOnOne={subordinateLastOneOnOne}
+        />
 
         {/* 全社サマリー */}
         <CompanyOverview data={overviewData} />

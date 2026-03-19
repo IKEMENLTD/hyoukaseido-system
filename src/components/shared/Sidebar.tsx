@@ -10,6 +10,7 @@ interface NavItem {
   label: string;
   icon: string;
   minGrade?: string;
+  section?: string;
 }
 
 interface SidebarProps {
@@ -127,40 +128,60 @@ export default function Sidebar({ navItems, userInfo }: SidebarProps) {
 
         {/* ナビゲーション */}
         <ul className="flex-1 py-2 overflow-y-auto">
-          {navItems.filter((item) => {
-            if (!item.minGrade || !userInfo?.grade) return true;
+          {(() => {
             const gradeOrder = ['G1', 'G2', 'G3', 'G4', 'G5'];
-            return gradeOrder.indexOf(userInfo.grade) >= gradeOrder.indexOf(item.minGrade);
-          }).map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-            return (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className={`flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
-                    isActive
-                      ? 'text-[#3b82f6] bg-[#3b82f6]/5 border-r-2 border-[#3b82f6]'
-                      : 'text-white/70 hover:text-white hover:bg-white/5'
-                  }`}
-                >
-                  <svg
-                    className="w-4 h-4 shrink-0"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    strokeWidth={1.5}
+            const filteredItems = navItems.filter((item) => {
+              if (!item.minGrade || !userInfo?.grade) return true;
+              return gradeOrder.indexOf(userInfo.grade) >= gradeOrder.indexOf(item.minGrade);
+            });
+            // セクション情報を事前計算（render中の変数再代入を回避）
+            const sectionMeta = filteredItems.map((item, i) => {
+              const prev = i > 0 ? filteredItems[i - 1].section : undefined;
+              return {
+                showSectionHeader: item.section != null && item.section !== '_bottom' && item.section !== prev,
+                showDivider: item.section === '_bottom' && prev !== '_bottom',
+              };
+            });
+            return filteredItems.map((item, i) => {
+              const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+              const { showSectionHeader, showDivider } = sectionMeta[i];
+              return (
+                <li key={item.href}>
+                  {showSectionHeader && (
+                    <div className="text-[10px] uppercase tracking-wider text-[#404040] px-4 pt-4 pb-1">
+                      {item.section}
+                    </div>
+                  )}
+                  {showDivider && (
+                    <div className="border-t border-white/5 mt-2 mb-1 mx-4" />
+                  )}
+                  <Link
+                    href={item.href}
+                    className={`flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
+                      isActive
+                        ? 'text-[#3b82f6] bg-[#3b82f6]/5 border-r-2 border-[#3b82f6]'
+                        : 'text-white/70 hover:text-white hover:bg-white/5'
+                    }`}
                   >
-                    <path
-                      strokeLinecap="square"
-                      strokeLinejoin="miter"
-                      d={item.icon}
-                    />
-                  </svg>
-                  {item.label}
-                </Link>
-              </li>
-            );
-          })}
+                    <svg
+                      className="w-4 h-4 shrink-0"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      strokeWidth={1.5}
+                    >
+                      <path
+                        strokeLinecap="square"
+                        strokeLinejoin="miter"
+                        d={item.icon}
+                      />
+                    </svg>
+                    {item.label}
+                  </Link>
+                </li>
+              );
+            });
+          })()}
         </ul>
 
         {/* ユーザー情報 + ログアウト */}
