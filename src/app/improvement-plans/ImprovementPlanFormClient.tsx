@@ -8,7 +8,7 @@
 import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import type { Rank, ReviewFrequency } from '@/types/evaluation';
+import type { ReviewFrequency } from '@/types/evaluation';
 
 // -----------------------------------------------------------------------------
 // 型定義

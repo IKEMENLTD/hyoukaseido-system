@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -21,16 +21,17 @@ interface SidebarProps {
 const AUTH_PATHS = ['/login'];
 
 export default function Sidebar({ navItems, userInfo }: SidebarProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  // pathname変更時に自動的にメニューを閉じる（派生stateパターン）
+  const [menuState, setMenuState] = useState({ isOpen: false, forPath: '' });
   const [loggingOut, setLoggingOut] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const isAuthPage = AUTH_PATHS.includes(pathname);
-
-  // ページ遷移時にメニューを閉じる
-  useEffect(() => {
-    setIsOpen(false);
-  }, [pathname]);
+  const isOpen = menuState.forPath === pathname && menuState.isOpen;
+  const setIsOpen = useCallback(
+    (open: boolean) => setMenuState({ isOpen: open, forPath: pathname }),
+    [pathname]
+  );
 
   // メニューが開いているときにbodyスクロールを防止
   useEffect(() => {

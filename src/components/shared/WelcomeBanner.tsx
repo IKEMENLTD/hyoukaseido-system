@@ -1,32 +1,31 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
 export default function WelcomeBanner() {
   const searchParams = useSearchParams();
-  const router = useRouter();
-  const [show, setShow] = useState(false);
+  const isWelcome = searchParams.get('welcome') === '1';
+  const [dismissed, setDismissed] = useState(false);
 
+  // URLからwelcomeパラメータを除去（ブラウザ履歴を汚さない）
   useEffect(() => {
-    if (searchParams.get('welcome') === '1') {
-      setShow(true);
-      // URLからwelcomeパラメータを除去(ブラウザ履歴を汚さない)
+    if (isWelcome) {
       const url = new URL(window.location.href);
       url.searchParams.delete('welcome');
       window.history.replaceState({}, '', url.toString());
     }
-  }, [searchParams]);
+  }, [isWelcome]);
 
-  if (!show) return null;
+  if (!isWelcome || dismissed) return null;
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
       {/* オーバーレイ */}
       <div
         className="absolute inset-0 bg-black/70"
-        onClick={() => setShow(false)}
+        onClick={() => setDismissed(true)}
       />
 
       {/* ポップアップ */}
@@ -57,13 +56,13 @@ export default function WelcomeBanner() {
           <Link
             href="/guide"
             className="flex-1 px-4 py-2.5 bg-[#3b82f6] text-[#050505] text-sm font-bold uppercase tracking-wider text-center hover:bg-[#2563eb] transition-colors"
-            onClick={() => setShow(false)}
+            onClick={() => setDismissed(true)}
           >
             使い方ガイドを見る
           </Link>
           <button
             type="button"
-            onClick={() => setShow(false)}
+            onClick={() => setDismissed(true)}
             className="px-4 py-2.5 border border-[#333333] text-sm text-[#a3a3a3] hover:text-[#e5e5e5] hover:border-[#555555] transition-colors"
           >
             閉じる

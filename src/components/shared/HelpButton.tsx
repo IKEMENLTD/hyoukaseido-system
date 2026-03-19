@@ -5,21 +5,24 @@
 
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { getHelpForPath, type PageHelp } from './help-data';
+import { getHelpForPath } from './help-data';
 
 export default function HelpButton() {
   const pathname = usePathname();
-  const [isOpen, setIsOpen] = useState(false);
-  const [help, setHelp] = useState<PageHelp | null>(null);
+  // pathname変更時に自動的にパネルを閉じる（派生stateパターン）
+  const [panelState, setPanelState] = useState({ isOpen: false, forPath: '' });
+  const isOpen = panelState.forPath === pathname && panelState.isOpen;
+  const setIsOpen = useCallback(
+    (open: boolean) => setPanelState({ isOpen: open, forPath: pathname }),
+    [pathname]
+  );
 
-  useEffect(() => {
-    setHelp(getHelpForPath(pathname));
-    setIsOpen(false);
-  }, [pathname]);
+  // pathname からヘルプを導出（純粋計算なので useMemo）
+  const help = useMemo(() => getHelpForPath(pathname), [pathname]);
 
-  const toggle = useCallback(() => setIsOpen((prev) => !prev), []);
+  const toggle = useCallback(() => setIsOpen(!isOpen), [setIsOpen, isOpen]);
 
   // ログインページやヘルプがないページでは非表示
   if (!help) return null;

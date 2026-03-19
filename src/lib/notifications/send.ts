@@ -10,7 +10,6 @@ import type {
   NotificationChannel,
   NotificationChannelRow,
   NotificationResult,
-  PersonalNotificationResult,
 } from './types';
 import { sendPersonalNotificationToMembers } from './personal-send';
 

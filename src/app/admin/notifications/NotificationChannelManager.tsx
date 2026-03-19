@@ -465,7 +465,7 @@ export default function NotificationChannelManager({
     } finally {
       setSaving(false);
     }
-  }, [form, orgId, validate, closeForm, router]);
+  }, [form, orgId, validate, closeForm, router, editingId]);
 
   // -----------------------------------------------------------------------
   // 編集保存

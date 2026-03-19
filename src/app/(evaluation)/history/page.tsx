@@ -4,7 +4,7 @@
 // Supabase統合: evaluationsテーブルからログインユーザーの過去評価を取得
 // =============================================================================
 
-import type { Rank, Grade, Half, EvaluationStatus, EvalPeriodStatus } from '@/types/evaluation';
+import type { Rank, EvalPeriodStatus } from '@/types/evaluation';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentMember } from '@/lib/auth/get-member';
 import EvalRankBadge from '@/components/shared/EvalRankBadge';

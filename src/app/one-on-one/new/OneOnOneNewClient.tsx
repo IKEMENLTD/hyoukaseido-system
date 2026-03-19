@@ -108,10 +108,12 @@ export default function OneOnOneNewClient({
   const [okrData, setOkrData] = useState<OkrObjectiveData[]>([]);
   const [okrLoading, setOkrLoading] = useState(false);
 
+  // メンバー未選択時はOKRデータを空として扱う（派生値）
+  const effectiveOkrData = selectedMemberId ? okrData : [];
+
   // メンバー選択時にOKR進捗を取得
   useEffect(() => {
     if (!selectedMemberId) {
-      setOkrData([]);
       return;
     }
 
@@ -340,15 +342,15 @@ export default function OneOnOneNewClient({
                 </div>
               )}
 
-              {!okrLoading && selectedMemberId && okrData.length === 0 && (
+              {!okrLoading && selectedMemberId && effectiveOkrData.length === 0 && (
                 <div className="text-xs text-[#404040] border border-[#1a1a1a] p-3 mb-2">
                   このメンバーにはアクティブなOKRがありません
                 </div>
               )}
 
-              {!okrLoading && okrData.length > 0 && (
+              {!okrLoading && effectiveOkrData.length > 0 && (
                 <div className="space-y-3 mb-2">
-                  {okrData.map((objective) => (
+                  {effectiveOkrData.map((objective) => (
                     <div
                       key={objective.objectiveTitle}
                       className="border border-[#1a1a1a] p-3"

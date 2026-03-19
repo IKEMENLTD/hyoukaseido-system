@@ -142,10 +142,6 @@ export default function MemberManager({
     () => initialMembers.filter((m) => m.status === 'active').length,
     [initialMembers]
   );
-  const inactiveCount = useMemo(
-    () => initialMembers.filter((m) => m.status === 'inactive').length,
-    [initialMembers]
-  );
   const linkedCount = useMemo(
     () => initialMembers.filter((m) => m.auth_user_id !== null).length,
     [initialMembers]
