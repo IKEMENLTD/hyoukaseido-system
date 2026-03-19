@@ -9,7 +9,8 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { advanceEvalPeriodStatus, revertEvalPeriodStatus, getPreviousStatusLabel } from '@/lib/evaluation/actions';
+import { advanceEvalPeriodStatus, revertEvalPeriodStatus } from '@/lib/evaluation/actions';
+import { getPreviousStatusLabel } from '@/lib/evaluation/constants';
 import type { EvalPeriodStatus, Half } from '@/types/evaluation';
 
 // ---------------------------------------------------------------------------

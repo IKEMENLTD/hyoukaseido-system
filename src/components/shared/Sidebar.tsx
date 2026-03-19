@@ -50,7 +50,8 @@ export default function Sidebar({ navItems, userInfo }: SidebarProps) {
       const supabase = createClient();
       await supabase.auth.signOut();
       router.push('/login');
-    } catch {
+    } catch (e) {
+      console.error('ログアウトエラー:', e);
       setLoggingOut(false);
     }
   };

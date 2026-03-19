@@ -8,6 +8,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { createServiceRoleClient } from '@/lib/supabase/service-role';
+import { EVAL_PERIOD_STATUS_ORDER } from './constants';
 import { getCurrentMember } from '@/lib/auth/get-member';
 import {
   calculateKPIScore,
@@ -708,15 +709,7 @@ export async function finalizeEvaluation(
 // 評価期間ステータス遷移 (admin)
 // -----------------------------------------------------------------------------
 
-const EVAL_PERIOD_STATUS_ORDER = [
-  'planning',
-  'target_setting',
-  'self_eval',
-  'manager_eval',
-  'calibration',
-  'feedback',
-  'closed',
-] as const;
+// EVAL_PERIOD_STATUS_ORDER, EVAL_PERIOD_STATUS_LABELS は constants.ts からimport
 
 export async function advanceEvalPeriodStatus(
   periodId: string
@@ -786,18 +779,6 @@ export async function advanceEvalPeriodStatus(
 // 評価期間ステータス巻き戻し (admin)
 // -----------------------------------------------------------------------------
 
-const EVAL_PERIOD_STATUS_LABELS: Record<
-  (typeof EVAL_PERIOD_STATUS_ORDER)[number],
-  string
-> = {
-  planning: '準備中',
-  target_setting: '目標設定',
-  self_eval: '自己評価',
-  manager_eval: '上長評価',
-  calibration: 'キャリブレーション',
-  feedback: 'フィードバック',
-  closed: 'クローズ',
-};
 
 export async function revertEvalPeriodStatus(
   periodId: string
@@ -852,15 +833,7 @@ export async function revertEvalPeriodStatus(
   return { ok: true };
 }
 
-/** 指定ステータスの1つ前のステータスラベルを返す。戻せない場合はnull */
-export function getPreviousStatusLabel(
-  status: (typeof EVAL_PERIOD_STATUS_ORDER)[number]
-): string | null {
-  const idx = EVAL_PERIOD_STATUS_ORDER.indexOf(status);
-  if (idx <= 0) return null;
-  if (status === 'closed') return null;
-  return EVAL_PERIOD_STATUS_LABELS[EVAL_PERIOD_STATUS_ORDER[idx - 1]];
-}
+// getPreviousStatusLabel は constants.ts に移動済み
 
 // =============================================================================
 // 内部: スコア再計算関数 (サーバーサイドのみ)

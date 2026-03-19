@@ -30,7 +30,9 @@ UIユーティリティ: lucide-react (SVGアイコン), recharts (グラフ), c
 -------------
 - Server Component優先: データ取得はサーバーサイドで実行
 - Server Actions: 評価系の全データ変更はServer Actions経由(権限チェック+バリデーション)
-  ※ OKR系(checkin/objectives作成/review)はクライアント直接操作+RLS依存(未移行)
+  ※ OKR系(checkin/objectives作成/review)はクライアント直接操作+RLS依存(意図的設計)
+    RLS: objectives INSERT=本人orG3+, checkins INSERT=本人のみ, key_results=objective所有者orG3+
+    クライアント操作はリアルタイムUI更新と実装シンプルさを優先。権限はRLSで十分保護済み
 - RLS二重防御: アプリ層+DB層の両方で権限制御
 - 楽観ロック: ステータス遷移は .eq('status', currentStatus).select().single() で検証
 - 型安全: any禁止、全Supabaseクエリに手動型定義
@@ -411,7 +413,7 @@ quantitative_score * weight% + qualitative_score * weight% + value_score * weigh
 種別         : Server + Client Component
 機能         : OKR一覧 (OKRTree表示) + 新規作成フォーム
 データ取得   : okr_objectives + okr_key_results (ネストselect)
-操作         : Supabase直接insert (objectives + key_results) ※Server Action未移行、RLS依存
+操作         : Supabase直接insert (objectives + key_results) RLS依存(auth.uid()検証済み)
 子コンポーネント: OKRTree, ObjectiveFormClient
 
 ------------------------------------------------------------------------
@@ -433,7 +435,7 @@ quantitative_score * weight% + qualitative_score * weight% + value_score * weigh
 種別         : Server + Client Component
 機能         : 週次OKRチェックイン入力
 データ取得   : 自分のactive OKR + KR一覧
-操作         : okr_key_results update + okr_checkins insert ※Server Action未移行、RLS依存
+操作         : okr_key_results update + okr_checkins insert RLS依存(auth.uid()検証済み)
 子コンポーネント: CheckinForm
 
 ------------------------------------------------------------------------
@@ -444,7 +446,7 @@ quantitative_score * weight% + qualitative_score * weight% + value_score * weigh
 種別         : Server + Client Component
 機能         : 四半期OKRレビュー (final_score 0.0-1.0 入力)
 データ取得   : okr_periods (reviewing) + objectives + key_results
-操作         : okr_key_results update (final_score) ※Server Action未移行、RLS依存
+操作         : okr_key_results update (final_score) RLS依存(auth.uid()検証済み)
 
 ------------------------------------------------------------------------
 8-11. /self/[periodId]

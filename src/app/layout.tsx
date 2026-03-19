@@ -74,8 +74,9 @@ export default async function RootLayout({
         grade: (member?.grade as string) ?? undefined,
       };
     }
-  } catch {
+  } catch (e) {
     // 認証情報取得失敗時はnullのまま（サイドバーにユーザー情報を表示しない）
+    console.error('認証情報取得エラー:', e);
   }
 
   return (
