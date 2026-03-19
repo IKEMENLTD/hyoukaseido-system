@@ -6,6 +6,19 @@
   package = "@netlify/plugin-nextjs"
 
 # ==============================================================
+# セキュリティヘッダー
+# ==============================================================
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-ancestors 'none'"
+
+# ==============================================================
 # Cronジョブ設定ガイド
 # Netlifyには組み込みCron機能がないため、外部サービスを使用
 # 推奨: cron-job.org / EasyCron / CloudFlare Workers

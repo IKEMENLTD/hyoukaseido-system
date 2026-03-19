@@ -38,7 +38,7 @@ interface ActionResult {
 /** 評価レコードの所有者・権限を検証し、評価データを返す */
 async function verifyEvaluationAccess(
   evaluationId: string,
-  mode: 'self' | 'manager' | 'calibration'
+  mode: 'self' | 'manager' | 'calibration' | 'feedback' | 'finalize'
 ): Promise<{
   ok: boolean;
   error?: string;
@@ -120,6 +120,29 @@ async function verifyEvaluationAccess(
     }
     if (eval_.status !== 'manager_submitted') {
       return { ok: false, error: 'この評価はキャリブレーション段階ではありません' };
+    }
+  } else if (mode === 'feedback') {
+    // フィードバック: G3+で、自分自身の評価は不可
+    if (eval_.member_id === member.id) {
+      return { ok: false, error: '自分自身のフィードバックはできません' };
+    }
+    if (!['G3', 'G4', 'G5'].includes(member.grade)) {
+      return { ok: false, error: 'フィードバックはG3以上のみ実行可能です' };
+    }
+    // G3は自事業部のみ操作可能（G4/G5は全事業部OK）
+    if (member.grade === 'G3' && !member.division_ids.includes(eval_.division_id)) {
+      return { ok: false, error: '所属事業部外の評価は操作できません' };
+    }
+    if (eval_.status !== 'calibrated') {
+      return { ok: false, error: 'この評価はフィードバック段階ではありません' };
+    }
+  } else if (mode === 'finalize') {
+    // 評価確定: G4/G5のみ
+    if (!['G4', 'G5'].includes(member.grade)) {
+      return { ok: false, error: '評価確定はG4以上のみ実行可能です' };
+    }
+    if (eval_.status !== 'feedback_done') {
+      return { ok: false, error: 'この評価はフィードバック未完了です' };
     }
   }
 
@@ -627,12 +650,12 @@ export async function submitFeedback(
   feedbackComment: string | null,
   nextActions: string | null
 ): Promise<ActionResult> {
+  // 所有権・権限チェック（グレード、事業部、ステータスを一括検証）
+  const access = await verifyEvaluationAccess(evaluationId, 'feedback');
+  if (!access.ok) return { success: false, error: access.error };
+
   const member = await getCurrentMember();
   if (!member) return { success: false, error: '認証が必要です' };
-
-  if (!['G3', 'G4', 'G5'].includes(member.grade)) {
-    return { success: false, error: 'フィードバックはG3以上のみ実行可能です' };
-  }
 
   if (feedbackComment !== null && feedbackComment.length > 5000) {
     return { success: false, error: 'コメントは5000文字以内で入力してください' };
@@ -687,12 +710,9 @@ export async function submitFeedback(
 export async function finalizeEvaluation(
   evaluationId: string
 ): Promise<ActionResult> {
-  const member = await getCurrentMember();
-  if (!member) return { success: false, error: '認証が必要です' };
-
-  if (!['G4', 'G5'].includes(member.grade)) {
-    return { success: false, error: '評価確定はG4以上のみ実行可能です' };
-  }
+  // 所有権・権限チェック（グレード、ステータスを一括検証）
+  const access = await verifyEvaluationAccess(evaluationId, 'finalize');
+  if (!access.ok) return { success: false, error: access.error };
 
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -729,7 +749,7 @@ export async function advanceEvalPeriodStatus(
   const supabase = await createClient();
   const { data: period, error: fetchErr } = await supabase
     .from('eval_periods')
-    .select('status, name')
+    .select('status, name, org_id')
     .eq('id', periodId)
     .single();
 
@@ -737,7 +757,12 @@ export async function advanceEvalPeriodStatus(
     return { success: false, error: '評価期間が見つかりません' };
   }
 
-  const periodData = period as { status: string; name: string };
+  const periodData = period as { status: string; name: string; org_id: string };
+
+  // org_idチェック: 操作者の所属組織と評価期間の組織が一致するか検証
+  if (periodData.org_id !== member.org_id) {
+    return { success: false, error: '他組織の評価期間は操作できません' };
+  }
   const currentStatus = periodData.status;
   const currentIdx = EVAL_PERIOD_STATUS_ORDER.indexOf(
     currentStatus as typeof EVAL_PERIOD_STATUS_ORDER[number]
@@ -798,7 +823,7 @@ export async function revertEvalPeriodStatus(
   const supabase = await createClient();
   const { data: period, error: fetchErr } = await supabase
     .from('eval_periods')
-    .select('status')
+    .select('status, org_id')
     .eq('id', periodId)
     .single();
 
@@ -806,7 +831,12 @@ export async function revertEvalPeriodStatus(
     return { ok: false, error: '評価期間が見つかりません' };
   }
 
-  const periodData = period as { status: string };
+  const periodData = period as { status: string; org_id: string };
+
+  // org_idチェック: 操作者の所属組織と評価期間の組織が一致するか検証
+  if (periodData.org_id !== member.org_id) {
+    return { ok: false, error: '他組織の評価期間は操作できません' };
+  }
   const currentStatus = periodData.status;
   const currentIdx = EVAL_PERIOD_STATUS_ORDER.indexOf(
     currentStatus as (typeof EVAL_PERIOD_STATUS_ORDER)[number]
