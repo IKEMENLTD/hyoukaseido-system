@@ -782,6 +782,86 @@ export async function advanceEvalPeriodStatus(
   return { success: true };
 }
 
+// -----------------------------------------------------------------------------
+// 評価期間ステータス巻き戻し (admin)
+// -----------------------------------------------------------------------------
+
+const EVAL_PERIOD_STATUS_LABELS: Record<
+  (typeof EVAL_PERIOD_STATUS_ORDER)[number],
+  string
+> = {
+  planning: '準備中',
+  target_setting: '目標設定',
+  self_eval: '自己評価',
+  manager_eval: '上長評価',
+  calibration: 'キャリブレーション',
+  feedback: 'フィードバック',
+  closed: 'クローズ',
+};
+
+export async function revertEvalPeriodStatus(
+  periodId: string
+): Promise<{ ok: boolean; error?: string }> {
+  const member = await getCurrentMember();
+  if (!member) return { ok: false, error: '認証が必要です' };
+  if (!['G4', 'G5'].includes(member.grade)) {
+    return { ok: false, error: '評価期間の管理はG4以上のみ実行可能です' };
+  }
+
+  const supabase = await createClient();
+  const { data: period, error: fetchErr } = await supabase
+    .from('eval_periods')
+    .select('status')
+    .eq('id', periodId)
+    .single();
+
+  if (fetchErr || !period) {
+    return { ok: false, error: '評価期間が見つかりません' };
+  }
+
+  const periodData = period as { status: string };
+  const currentStatus = periodData.status;
+  const currentIdx = EVAL_PERIOD_STATUS_ORDER.indexOf(
+    currentStatus as (typeof EVAL_PERIOD_STATUS_ORDER)[number]
+  );
+
+  // closed からの巻き戻しは禁止
+  if (currentStatus === 'closed') {
+    return { ok: false, error: 'クローズ済みの評価期間は巻き戻せません' };
+  }
+
+  // planning（最初のステータス）は戻せない
+  if (currentIdx <= 0) {
+    return { ok: false, error: 'これ以上ステータスを戻すことはできません' };
+  }
+
+  const prevStatus = EVAL_PERIOD_STATUS_ORDER[currentIdx - 1];
+
+  const { data, error } = await supabase
+    .from('eval_periods')
+    .update({ status: prevStatus })
+    .eq('id', periodId)
+    .eq('status', currentStatus) // 楽観ロック
+    .select('id')
+    .single();
+
+  if (error || !data) {
+    return { ok: false, error: 'ステータスの巻き戻しに失敗しました' };
+  }
+
+  return { ok: true };
+}
+
+/** 指定ステータスの1つ前のステータスラベルを返す。戻せない場合はnull */
+export function getPreviousStatusLabel(
+  status: (typeof EVAL_PERIOD_STATUS_ORDER)[number]
+): string | null {
+  const idx = EVAL_PERIOD_STATUS_ORDER.indexOf(status);
+  if (idx <= 0) return null;
+  if (status === 'closed') return null;
+  return EVAL_PERIOD_STATUS_LABELS[EVAL_PERIOD_STATUS_ORDER[idx - 1]];
+}
+
 // =============================================================================
 // 内部: スコア再計算関数 (サーバーサイドのみ)
 // =============================================================================

@@ -216,6 +216,12 @@ export default async function DivisionPage(props: DivisionPageProps) {
           <p className="text-sm text-[#737373]">
             適切な権限がありません。
           </p>
+          <a
+            href="/dashboard"
+            className="mt-4 inline-block px-4 py-2 border border-[#333333] text-xs text-[#a3a3a3] hover:border-[#e5e5e5] hover:text-[#e5e5e5]"
+          >
+            ダッシュボードへ戻る
+          </a>
         </div>
       </div>
     );

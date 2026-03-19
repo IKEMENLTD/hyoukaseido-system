@@ -9,11 +9,12 @@ interface NavItem {
   href: string;
   label: string;
   icon: string;
+  minGrade?: string;
 }
 
 interface SidebarProps {
   navItems: NavItem[];
-  userInfo?: { name: string; email: string } | null;
+  userInfo?: { name: string; email: string; grade?: string } | null;
 }
 
 // サイドバーを非表示にするパス
@@ -124,7 +125,11 @@ export default function Sidebar({ navItems, userInfo }: SidebarProps) {
 
         {/* ナビゲーション */}
         <ul className="flex-1 py-2 overflow-y-auto">
-          {navItems.map((item) => {
+          {navItems.filter((item) => {
+            if (!item.minGrade || !userInfo?.grade) return true;
+            const gradeOrder = ['G1', 'G2', 'G3', 'G4', 'G5'];
+            return gradeOrder.indexOf(userInfo.grade) >= gradeOrder.indexOf(item.minGrade);
+          }).map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
             return (
               <li key={item.href}>

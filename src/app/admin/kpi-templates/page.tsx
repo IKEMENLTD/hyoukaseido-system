@@ -57,6 +57,12 @@ export default async function AdminKpiTemplatesPage() {
           <p className="text-sm text-[#737373]">
             管理機能はG4以上の等級のメンバーのみ利用できます。
           </p>
+          <a
+            href="/dashboard"
+            className="mt-4 inline-block px-4 py-2 border border-[#333333] text-xs text-[#a3a3a3] hover:border-[#e5e5e5] hover:text-[#e5e5e5]"
+          >
+            ダッシュボードへ戻る
+          </a>
         </div>
       </div>
     );

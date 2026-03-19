@@ -4,10 +4,11 @@
 // Supabase統合: evaluationsテーブルからログインユーザーの過去評価を取得
 // =============================================================================
 
-import type { Rank, Grade, Half, EvaluationStatus } from '@/types/evaluation';
+import type { Rank, Grade, Half, EvaluationStatus, EvalPeriodStatus } from '@/types/evaluation';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentMember } from '@/lib/auth/get-member';
 import EvalRankBadge from '@/components/shared/EvalRankBadge';
+import Link from 'next/link';
 
 // -----------------------------------------------------------------------------
 // Supabase行データの型定義
@@ -95,6 +96,17 @@ export default async function HistoryPage() {
 
   const evaluations = (rawEvaluations ?? []) as unknown as EvaluationHistoryRow[];
 
+  // 現在の評価期間を取得（アクティブなステータスのもの）
+  const activeStatuses: EvalPeriodStatus[] = ['self_eval', 'manager_eval', 'calibration', 'feedback'];
+  const { data: currentPeriod } = await supabase
+    .from('eval_periods')
+    .select('id, name, status, half, fiscal_year')
+    .eq('org_id', member.org_id)
+    .in('status', activeStatuses)
+    .order('start_date', { ascending: false })
+    .limit(1)
+    .single();
+
   // サマリー計算
   const scoredEvaluations = evaluations.filter(
     (e): e is EvaluationHistoryRow & { total_score: number } => e.total_score !== null
@@ -120,11 +132,56 @@ export default async function HistoryPage() {
         {/* ページヘッダー */}
         <div>
           <h1 className="text-xl font-bold text-[#e5e5e5] tracking-wider">
-            評価履歴
+            評価・査定
           </h1>
           <p className="text-sm text-[#737373] mt-1">
-            過去の評価結果一覧
+            現在の評価と過去の査定履歴
           </p>
+        </div>
+
+        {/* 現在の評価期間セクション */}
+        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4 sm:p-6">
+          <h2 className="text-sm font-medium text-[#a3a3a3] uppercase tracking-wider mb-4">
+            現在の評価期間
+          </h2>
+          {currentPeriod ? (
+            <div>
+              <div className="flex items-center gap-3 mb-4">
+                <span className="text-lg font-bold text-[#e5e5e5]">
+                  {currentPeriod.name as string}
+                </span>
+                <span className="px-2 py-0.5 border border-[#3b82f6]/30 text-xs text-[#3b82f6]">
+                  {currentPeriod.status as string}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <Link
+                  href={`/self/${currentPeriod.id as string}`}
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-[#050505] bg-[#3b82f6] hover:bg-[#2563eb] transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                    <path strokeLinecap="square" strokeLinejoin="miter" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  自己評価を入力する
+                </Link>
+                {(['G3', 'G4', 'G5'] as readonly string[]).includes(member.grade) && (
+                  <Link
+                    href={`/periods/${currentPeriod.id as string}`}
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold border border-[#3b82f6] text-[#3b82f6] hover:bg-[#3b82f6]/10 transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                      <path strokeLinecap="square" strokeLinejoin="miter" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                    評価期間を管理する
+                  </Link>
+                )}
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-[#737373]">
+              現在の評価期間はありません
+            </p>
+          )}
         </div>
 
         {evaluations.length === 0 ? (

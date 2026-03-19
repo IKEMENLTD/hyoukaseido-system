@@ -9,7 +9,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { advanceEvalPeriodStatus } from '@/lib/evaluation/actions';
+import { advanceEvalPeriodStatus, revertEvalPeriodStatus, getPreviousStatusLabel } from '@/lib/evaluation/actions';
 import type { EvalPeriodStatus, Half } from '@/types/evaluation';
 
 // ---------------------------------------------------------------------------
@@ -99,6 +99,13 @@ function getNextStatus(current: EvalPeriodStatus): EvalPeriodStatus | null {
   const index = STATUS_FLOW.indexOf(current);
   if (index === -1 || index >= STATUS_FLOW.length - 1) return null;
   return STATUS_FLOW[index + 1];
+}
+
+function getPrevStatus(current: EvalPeriodStatus): EvalPeriodStatus | null {
+  if (current === 'closed' || current === 'planning') return null;
+  const index = STATUS_FLOW.indexOf(current);
+  if (index <= 0) return null;
+  return STATUS_FLOW[index - 1];
 }
 
 // ---------------------------------------------------------------------------
@@ -247,6 +254,36 @@ export default function EvalPeriodManager({
     closeModal();
     router.refresh();
   }, [advanceTarget, closeModal, router]);
+
+  /** ステータス巻き戻し (window.confirm で確認) */
+  const handleRevertStatus = useCallback(
+    async (period: EvalPeriodRow) => {
+      const prevStatus = getPrevStatus(period.status);
+      if (!prevStatus) return;
+
+      const prevLabel = STATUS_CONFIG[prevStatus].label;
+      const confirmed = window.confirm(
+        `ステータスを「${prevLabel}」に戻します。よろしいですか？`
+      );
+      if (!confirmed) return;
+
+      setIsSubmitting(true);
+      setErrorMessage(null);
+
+      const result = await revertEvalPeriodStatus(period.id);
+
+      setIsSubmitting(false);
+
+      if (!result.ok) {
+        setErrorMessage(result.error ?? 'ステータスの巻き戻しに失敗しました');
+        return;
+      }
+
+      setSuccessMessage(`ステータスを「${prevLabel}」に戻しました`);
+      router.refresh();
+    },
+    [router]
+  );
 
   /** OKR紐付けモーダルを開く */
   const openLinkOkrModal = useCallback(
@@ -453,6 +490,16 @@ export default function EvalPeriodManager({
                       </td>
                       <td className="px-4 py-3 text-center">
                         <div className="flex items-center justify-center gap-2">
+                          {getPrevStatus(period.status) && (
+                            <button
+                              type="button"
+                              disabled={isSubmitting}
+                              onClick={() => handleRevertStatus(period)}
+                              className="px-2 py-1 border border-[#f59e0b] text-[10px] text-[#f59e0b] hover:bg-[#f59e0b]/10 transition-colors disabled:opacity-50"
+                            >
+                              {'<-'} {STATUS_CONFIG[getPrevStatus(period.status)!].label}に戻す
+                            </button>
+                          )}
                           {nextStatus && (
                             <button
                               type="button"

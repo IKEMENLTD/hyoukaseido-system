@@ -127,6 +127,11 @@ export default function ManagerSummarySubmit({
   const handleSubmit = useCallback(async () => {
     if (!allSectionsComplete) return;
 
+    const confirmed = window.confirm(
+      '上長評価を提出します。提出後は内容の編集ができなくなります。\n\nよろしいですか？'
+    );
+    if (!confirmed) return;
+
     setSubmitting(true);
     setMessage(null);
 

@@ -46,6 +46,12 @@ export default async function FinancialsPage() {
         <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4 sm:p-8 max-w-md text-center">
           <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">アクセス権限がありません</h2>
           <p className="text-sm text-[#737373]">管理機能はG4以上のメンバーのみ利用できます。</p>
+          <a
+            href="/dashboard"
+            className="mt-4 inline-block px-4 py-2 border border-[#333333] text-xs text-[#a3a3a3] hover:border-[#e5e5e5] hover:text-[#e5e5e5]"
+          >
+            ダッシュボードへ戻る
+          </a>
         </div>
       </div>
     );
