@@ -4,6 +4,7 @@
 // =============================================================================
 
 import { createClient } from '@/lib/supabase/server';
+import { getUser } from './get-user';
 import type { Grade } from '@/types/evaluation';
 
 export interface CurrentMember {
@@ -32,8 +33,8 @@ export type GetMemberResult =
  * - 状態を明示的に返すことで、呼び出し側が適切なUIを出し分けられる
  */
 export async function getMemberResult(): Promise<GetMemberResult> {
+  const user = await getUser();
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) return { status: 'unauthenticated' };
 

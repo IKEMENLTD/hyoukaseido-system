@@ -52,7 +52,7 @@ export default async function EvalPeriodsPage() {
 
   // 並列データ取得
   const [periodsRes, orgsRes, okrPeriodsRes, linksRes] = await Promise.all([
-    supabase.from('eval_periods').select('*').order('fiscal_year', { ascending: false }),
+    supabase.from('eval_periods').select('id, org_id, name, half, fiscal_year, start_date, end_date, status').order('fiscal_year', { ascending: false }),
     supabase.from('organizations').select('id').limit(1).single(),
     supabase.from('okr_periods').select('id, name, quarter, fiscal_year, status').order('fiscal_year', { ascending: false }),
     supabase.from('eval_period_okr_periods').select('eval_period_id, okr_period_id'),

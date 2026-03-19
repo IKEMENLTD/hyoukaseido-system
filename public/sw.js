@@ -33,16 +33,22 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // http/https以外のスキーム(chrome-extension://等)はキャッシュ不可なのでスキップ
+  // http/https以外のスキーム(chrome-extension://等)はスキップ
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
     return;
   }
 
-  // API・認証リクエストはキャッシュしない
+  // クロスオリジンリクエストはスキップ（CSPエラー防止）
+  if (url.origin !== self.location.origin) {
+    return;
+  }
+
+  // API・認証・Service Worker自身はキャッシュしない
   if (
     event.request.method !== 'GET' ||
     url.pathname.includes('/api/') ||
-    url.pathname.includes('/auth/')
+    url.pathname.includes('/auth/') ||
+    url.pathname.endsWith('/sw.js')
   ) {
     return;
   }

@@ -52,7 +52,7 @@ export async function getOrCreateEvaluation(
   // 既存レコードを検索
   const { data: existing, error: existingErr } = await supabase
     .from('evaluations')
-    .select('*')
+    .select('id, eval_period_id, member_id, evaluator_id, division_id, grade_at_eval, salary_at_eval, phase_at_eval, quantitative_weight, qualitative_weight, value_weight, status, quantitative_score, qualitative_score, value_score, total_score, rank, upper_behavior_bonus, promotion_eligibility, self_comment, evaluator_comment, next_actions, salary_change_recommended, promotion_recommended, created_at, updated_at')
     .eq('member_id', memberId)
     .eq('eval_period_id', periodId)
     .limit(1)

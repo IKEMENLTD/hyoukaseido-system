@@ -53,7 +53,7 @@ export default async function AdminOkrPeriodsPage() {
   // OKR期間一覧取得
   const { data: periods, error: periodsError } = await supabase
     .from('okr_periods')
-    .select('*')
+    .select('id, org_id, name, quarter, fiscal_year, start_date, end_date, status')
     .order('fiscal_year', { ascending: false });
 
   // org_id取得 (最初の組織)

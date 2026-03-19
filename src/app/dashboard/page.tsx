@@ -195,7 +195,12 @@ export default async function DashboardPage() {
 
   const supabase = await createClient();
 
-  // -- 並列データ取得 --
+  // ROI用: 前月の財務データ取得に使う日付を事前計算
+  const now = new Date();
+  const roiYear = now.getFullYear();
+  const roiMonth = now.getMonth() + 1;
+
+  // -- 並列データ取得（financialクエリも統合） --
   const [
     divisionsResult,
     divisionMembersResult,
@@ -206,6 +211,7 @@ export default async function DashboardPage() {
     activePeriodsResult,
     myEvalsResult,
     latestCheckinResult,
+    financialResult,
   ] = await Promise.all([
     supabase
       .from('divisions')
@@ -220,9 +226,11 @@ export default async function DashboardPage() {
       .eq('status', 'active'),
     supabase
       .from('eval_periods')
-      .select('*')
+      .select('id, name, half, fiscal_year, status')
       .order('created_at', { ascending: false })
       .limit(1),
+    // NOTE: eval_period_idでフィルタしたいが、最新periodIdはevalPeriodsの結果に依存するため
+    // ここではフィルタできない。取得後にJSでフィルタする。
     supabase
       .from('evaluations')
       .select('id, eval_period_id, member_id, division_id, total_score, rank, promotion_eligibility, status'),
@@ -247,6 +255,12 @@ export default async function DashboardPage() {
       .eq('member_id', currentMember.id)
       .order('checkin_date', { ascending: false })
       .limit(1),
+    // ROI用: 前月の財務データ
+    supabase
+      .from('division_financials')
+      .select('revenue')
+      .eq('fiscal_year', roiYear)
+      .eq('month', roiMonth > 1 ? roiMonth - 1 : 12),
   ]);
 
   if (divisionsResult.error) console.error('[DB] divisions 取得エラー:', divisionsResult.error);
@@ -258,6 +272,7 @@ export default async function DashboardPage() {
   if (activePeriodsResult.error) console.error('[DB] active eval_periods 取得エラー:', activePeriodsResult.error);
   if (myEvalsResult.error) console.error('[DB] my evaluations 取得エラー:', myEvalsResult.error);
   if (latestCheckinResult.error) console.error('[DB] okr_checkins 取得エラー:', latestCheckinResult.error);
+  if (financialResult.error) console.error('[DB] division_financials 取得エラー:', financialResult.error);
 
   // -- null安全: エラー時は空配列にフォールバック --
   const divisions = (divisionsResult.data ?? []) as DivisionRow[];
@@ -457,17 +472,8 @@ export default async function DashboardPage() {
   const memberCount = members.length;
   const perPersonCost = memberCount > 0 ? Math.round(monthlySalaryCost / memberCount) : 0;
 
-  // 直近月の財務データから全社売上を集計
-  const now = new Date();
-  const roiYear = now.getFullYear();
-  const roiMonth = now.getMonth() + 1;
-  const { data: financialRows, error: financialRowsErr } = await supabase
-    .from('division_financials')
-    .select('revenue')
-    .eq('fiscal_year', roiYear)
-    .eq('month', roiMonth > 1 ? roiMonth - 1 : 12); // 前月実績
-  if (financialRowsErr) console.error('[DB] division_financials 取得エラー:', financialRowsErr);
-
+  // 直近月の財務データから全社売上を集計（Promise.allで取得済み）
+  const financialRows = financialResult.data;
   const monthlyRevenue = financialRows && financialRows.length > 0
     ? (financialRows as Array<{ revenue: number }>).reduce((sum, r) => sum + r.revenue, 0)
     : monthlySalaryCost * 4; // データなしの場合はフォールバック

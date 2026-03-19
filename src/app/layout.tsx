@@ -1,9 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import Sidebar from "@/components/shared/Sidebar";
 import HelpButton from "@/components/shared/HelpButton";
 import WelcomeBanner from "@/components/shared/WelcomeBanner";
-import { createClient } from "@/lib/supabase/server";
+import { getMemberResult } from "@/lib/auth/get-member";
 import { Suspense } from "react";
 import "./globals.css";
 
@@ -60,23 +61,21 @@ export default async function RootLayout({
   // ユーザー情報を取得してサイドバーに渡す
   let userInfo: { name: string; email: string; grade?: string } | null = null;
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data: member } = await supabase
-        .from('members')
-        .select('name, grade')
-        .eq('auth_user_id', user.id)
-        .single();
+    const result = await getMemberResult();
+    if (result.status === 'ok') {
       userInfo = {
-        name: (member?.name as string) ?? '未登録',
-        email: user.email ?? '',
-        grade: (member?.grade as string) ?? undefined,
+        name: result.member.name,
+        email: '',
+        grade: result.member.grade,
+      };
+    } else if (result.status === 'unlinked') {
+      userInfo = {
+        name: '未登録',
+        email: result.user.email,
       };
     }
-  } catch (e) {
-    // 認証情報取得失敗時はnullのまま（サイドバーにユーザー情報を表示しない）
-    console.error('認証情報取得エラー:', e);
+  } catch {
+    // 認証情報取得失敗時はnullのまま
   }
 
   return (
@@ -87,9 +86,11 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#050505] text-white`}
       >
-        <script
+        <Script
+          id="sw-register"
+          strategy="afterInteractive"
           dangerouslySetInnerHTML={{
-            __html: `if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js')})}`,
+            __html: `if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js')}`,
           }}
         />
         <div className="flex min-h-screen flex-col lg:flex-row">
