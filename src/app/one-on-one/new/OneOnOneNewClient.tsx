@@ -109,10 +109,9 @@ export default function OneOnOneNewClient({
   const router = useRouter();
 
   // フォーム状態
+  const today = new Date().toISOString().split('T')[0];
   const [selectedMemberId, setSelectedMemberId] = useState('');
-  const [meetingDate, setMeetingDate] = useState(
-    new Date().toISOString().split('T')[0],
-  );
+  const [meetingDate, setMeetingDate] = useState(today);
   const [meetingType, setMeetingType] = useState<MeetingType | ''>('');
   const [okrProgressText, setOkrProgressText] = useState('');
   const [blockers, setBlockers] = useState('');
@@ -303,6 +302,7 @@ export default function OneOnOneNewClient({
               <input
                 type="date"
                 value={meetingDate}
+                max={today}
                 onChange={(e) => setMeetingDate(e.target.value)}
                 className="bg-[#111111] border border-[#333333] text-[#e5e5e5] text-sm px-3 py-2 focus:border-[#3b82f6] outline-none"
               />

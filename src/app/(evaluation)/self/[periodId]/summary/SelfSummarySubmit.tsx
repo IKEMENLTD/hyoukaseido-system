@@ -11,6 +11,9 @@ import { submitSelfEvaluation, saveSelfDraft } from '@/lib/evaluation/actions';
 import type { Rank, Phase } from '@/types/evaluation';
 import { PHASE_WEIGHTS } from '@/types/evaluation';
 import EvalRankBadge from '@/components/shared/EvalRankBadge';
+import ConfirmModal from '@/components/shared/ConfirmModal';
+import StatusMessage from '@/components/shared/StatusMessage';
+import LoadingButton from '@/components/shared/LoadingButton';
 
 // ---------------------------------------------------------------------------
 // 型定義
@@ -74,6 +77,7 @@ export default function SelfSummarySubmit({
   const [selfComment, setSelfComment] = useState(existingSelfComment ?? '');
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const weights = PHASE_WEIGHTS[phase];
 
@@ -119,14 +123,12 @@ export default function SelfSummarySubmit({
     },
   ];
 
-  const handleSubmit = useCallback(async () => {
+  const handleSubmit = useCallback(() => {
     if (!allSectionsComplete) return;
+    setConfirmOpen(true);
+  }, [allSectionsComplete]);
 
-    const confirmed = window.confirm(
-      '自己評価を提出します。提出後は内容の編集ができなくなります。\n\nよろしいですか？'
-    );
-    if (!confirmed) return;
-
+  const handleConfirmSubmit = useCallback(async () => {
     setSubmitting(true);
     setMessage(null);
 
@@ -140,7 +142,8 @@ export default function SelfSummarySubmit({
     }
 
     setSubmitting(false);
-  }, [evaluationId, selfComment, allSectionsComplete, router]);
+    setConfirmOpen(false);
+  }, [evaluationId, selfComment, router]);
 
   const handleSaveDraft = useCallback(async () => {
     setSubmitting(true);
@@ -179,15 +182,11 @@ export default function SelfSummarySubmit({
       </div>
 
       {/* 保存メッセージ */}
-      {message && (
-        <div className={`border px-4 py-3 text-sm ${
-          message.type === 'success'
-            ? 'border-[#22d3ee] text-[#22d3ee]'
-            : 'border-[#ef4444] text-[#ef4444]'
-        }`}>
-          {message.text}
-        </div>
-      )}
+      <StatusMessage
+        message={message?.text ?? null}
+        type={message?.type ?? 'success'}
+        onDismiss={() => setMessage(null)}
+      />
 
       {/* メンバー情報と推定ランク */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -327,33 +326,38 @@ export default function SelfSummarySubmit({
         </a>
         {!isSubmitted && (
           <div className="flex items-center gap-3">
-            <button
-              type="button"
+            <LoadingButton
+              loading={submitting}
+              label="下書き保存"
+              loadingLabel="保存中..."
+              variant="secondary"
               onClick={handleSaveDraft}
-              disabled={submitting}
-              className={`px-4 py-2 border text-xs transition-colors ${
-                submitting
-                  ? 'border-[#333333] text-[#737373] cursor-not-allowed'
-                  : 'border-[#333333] text-[#a3a3a3] hover:border-[#555555]'
-              }`}
-            >
-              {submitting ? '保存中...' : '下書き保存'}
-            </button>
-            <button
-              type="button"
+            />
+            <LoadingButton
+              loading={submitting}
+              disabled={!allSectionsComplete}
+              label="自己評価を提出"
+              loadingLabel="提出中..."
+              variant="primary"
               onClick={handleSubmit}
-              disabled={submitting || !allSectionsComplete}
-              className={`px-6 py-2 text-sm font-bold uppercase tracking-wider transition-colors ${
-                submitting || !allSectionsComplete
-                  ? 'bg-[#3b82f6] text-[#050505] opacity-50 cursor-not-allowed'
-                  : 'bg-[#3b82f6] text-[#050505] hover:bg-[#2563eb]'
-              }`}
-            >
-              {submitting ? '提出中...' : '自己評価を提出'}
-            </button>
+              className="px-6"
+            />
           </div>
         )}
       </div>
+
+      {/* 提出確認モーダル */}
+      <ConfirmModal
+        open={confirmOpen}
+        title="自己評価を提出"
+        description="提出後は内容の編集ができなくなります。よろしいですか？"
+        confirmLabel="提出する"
+        cancelLabel="キャンセル"
+        variant="danger"
+        loading={submitting}
+        onConfirm={handleConfirmSubmit}
+        onCancel={() => setConfirmOpen(false)}
+      />
     </div>
   );
 }

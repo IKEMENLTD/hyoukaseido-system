@@ -11,6 +11,20 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 // 型定義
 // ---------------------------------------------------------------------------
 
+interface DraftWrapper<T> {
+  data: T;
+  savedAt: string;
+}
+
+function isDraftWrapper<T>(value: unknown): value is DraftWrapper<T> {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'data' in value &&
+    'savedAt' in value
+  );
+}
+
 interface UseAutoSaveDraftReturn<T> {
   /** 最終保存日時 (未保存ならnull) */
   lastSaved: Date | null;
@@ -22,6 +36,8 @@ interface UseAutoSaveDraftReturn<T> {
   restoredData: T | null;
   /** 復元バナーを閉じる / 復元を破棄する */
   dismissRestore: () => void;
+  /** 下書き保存時のISOタイムスタンプ (未保存 or 旧形式ならnull) */
+  draftSavedAt: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -72,19 +88,32 @@ export function useAutoSaveDraft<T>(
   debounceMs: number = 1000,
 ): UseAutoSaveDraftReturn<T> {
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+
   // 初回マウント時にlocalStorageから復元（lazy initializer）
-  const [restoredData, setRestoredData] = useState<T | null>(() => {
+  // restoredData と draftSavedAt を同時に初期化するため、一度だけパースする
+  const initialParsed = useRef<{ data: T | null; savedAt: string | null } | undefined>(undefined);
+  if (initialParsed.current === undefined) {
     const raw = safeGetItem(key);
     if (raw !== null) {
       try {
-        const parsed = JSON.parse(raw) as { data: T; savedAt: string };
-        return parsed.data;
+        const parsed: unknown = JSON.parse(raw);
+        if (isDraftWrapper<T>(parsed)) {
+          initialParsed.current = { data: parsed.data, savedAt: parsed.savedAt };
+        } else {
+          // 旧形式: dataが直接保存されている、savedAtはnull
+          initialParsed.current = { data: parsed as T, savedAt: null };
+        }
       } catch {
         safeRemoveItem(key);
+        initialParsed.current = { data: null, savedAt: null };
       }
+    } else {
+      initialParsed.current = { data: null, savedAt: null };
     }
-    return null;
-  });
+  }
+
+  const [restoredData, setRestoredData] = useState<T | null>(initialParsed.current.data);
+  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(initialParsed.current.savedAt);
   const [hasDraft, setHasDraft] = useState(() => safeGetItem(key) !== null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitialMount = useRef(true);
@@ -103,12 +132,15 @@ export function useAutoSaveDraft<T>(
     }
 
     timerRef.current = setTimeout(() => {
+      const now = new Date();
+      const isoString = now.toISOString();
       const payload = JSON.stringify({
         data,
-        savedAt: new Date().toISOString(),
+        savedAt: isoString,
       });
       safeSetItem(key, payload);
-      setLastSaved(new Date());
+      setLastSaved(now);
+      setDraftSavedAt(isoString);
       setHasDraft(true);
     }, debounceMs);
 
@@ -125,6 +157,7 @@ export function useAutoSaveDraft<T>(
   const clearDraft = useCallback(() => {
     safeRemoveItem(key);
     setLastSaved(null);
+    setDraftSavedAt(null);
     setHasDraft(false);
     setRestoredData(null);
   }, [key]);
@@ -142,5 +175,6 @@ export function useAutoSaveDraft<T>(
     hasDraft,
     restoredData,
     dismissRestore,
+    draftSavedAt,
   };
 }

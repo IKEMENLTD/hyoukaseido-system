@@ -10,6 +10,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { advanceEvalPeriodStatus, revertEvalPeriodStatus } from '@/lib/evaluation/actions';
+import ConfirmModal from '@/components/shared/ConfirmModal';
 import type { EvalPeriodStatus, Half } from '@/types/evaluation';
 
 // ---------------------------------------------------------------------------
@@ -127,6 +128,8 @@ export default function EvalPeriodManager({
   const [advanceTarget, setAdvanceTarget] = useState<EvalPeriodRow | null>(null);
   const [linkTarget, setLinkTarget] = useState<EvalPeriodRow | null>(null);
   const [selectedOkrIds, setSelectedOkrIds] = useState<Set<string>>(new Set());
+  const [revertTarget, setRevertTarget] = useState<EvalPeriodRow | null>(null);
+  const [revertConfirmOpen, setRevertConfirmOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -255,35 +258,44 @@ export default function EvalPeriodManager({
     router.refresh();
   }, [advanceTarget, closeModal, router]);
 
-  /** ステータス巻き戻し (window.confirm で確認) */
-  const handleRevertStatus = useCallback(
-    async (period: EvalPeriodRow) => {
-      const prevStatus = getPrevStatus(period.status);
-      if (!prevStatus) return;
-
-      const prevLabel = STATUS_CONFIG[prevStatus].label;
-      const confirmed = window.confirm(
-        `ステータスを「${prevLabel}」に戻します。よろしいですか？`
-      );
-      if (!confirmed) return;
-
-      setIsSubmitting(true);
-      setErrorMessage(null);
-
-      const result = await revertEvalPeriodStatus(period.id);
-
-      setIsSubmitting(false);
-
-      if (!result.ok) {
-        setErrorMessage(result.error ?? 'ステータスの巻き戻しに失敗しました');
-        return;
-      }
-
-      setSuccessMessage(`ステータスを「${prevLabel}」に戻しました`);
-      router.refresh();
+  /** ステータス巻き戻し確認モーダルを開く */
+  const openRevertConfirm = useCallback(
+    (period: EvalPeriodRow) => {
+      setRevertTarget(period);
+      setRevertConfirmOpen(true);
+      clearMessages();
     },
-    [router]
+    [clearMessages]
   );
+
+  /** ステータス巻き戻し実行 */
+  const handleRevertStatus = useCallback(async () => {
+    if (!revertTarget) return;
+
+    const prevStatus = getPrevStatus(revertTarget.status);
+    if (!prevStatus) return;
+
+    const prevLabel = STATUS_CONFIG[prevStatus].label;
+
+    setIsSubmitting(true);
+    setErrorMessage(null);
+
+    const result = await revertEvalPeriodStatus(revertTarget.id);
+
+    setIsSubmitting(false);
+
+    if (!result.ok) {
+      setErrorMessage(result.error ?? 'ステータスの巻き戻しに失敗しました');
+      setRevertConfirmOpen(false);
+      setRevertTarget(null);
+      return;
+    }
+
+    setSuccessMessage(`ステータスを「${prevLabel}」に戻しました`);
+    setRevertConfirmOpen(false);
+    setRevertTarget(null);
+    router.refresh();
+  }, [revertTarget, router]);
 
   /** OKR紐付けモーダルを開く */
   const openLinkOkrModal = useCallback(
@@ -494,7 +506,7 @@ export default function EvalPeriodManager({
                             <button
                               type="button"
                               disabled={isSubmitting}
-                              onClick={() => handleRevertStatus(period)}
+                              onClick={() => openRevertConfirm(period)}
                               className="px-2 py-1 border border-[#f59e0b] text-[10px] text-[#f59e0b] hover:bg-[#f59e0b]/10 transition-colors disabled:opacity-50"
                             >
                               {'<-'} {STATUS_CONFIG[getPrevStatus(period.status)!].label}に戻す
@@ -526,6 +538,26 @@ export default function EvalPeriodManager({
           </div>
         </div>
       </div>
+
+      {/* --- ステータス巻き戻し確認モーダル --- */}
+      <ConfirmModal
+        open={revertConfirmOpen}
+        title="ステータスの巻き戻し"
+        description={
+          revertTarget && getPrevStatus(revertTarget.status)
+            ? `「${revertTarget.name}」のステータスを「${STATUS_CONFIG[getPrevStatus(revertTarget.status)!].label}」に戻します。よろしいですか？`
+            : ''
+        }
+        confirmLabel="戻す"
+        cancelLabel="キャンセル"
+        variant="danger"
+        loading={isSubmitting}
+        onConfirm={handleRevertStatus}
+        onCancel={() => {
+          setRevertConfirmOpen(false);
+          setRevertTarget(null);
+        }}
+      />
 
       {/* --- モーダル --- */}
       {modalMode !== 'closed' && (

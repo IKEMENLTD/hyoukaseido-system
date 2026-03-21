@@ -9,6 +9,9 @@ import { useState, useCallback, useMemo } from 'react';
 import { calibrateEvaluation } from '@/lib/evaluation/actions';
 import { downloadCSV } from '@/lib/utils/csv-export';
 import EvalRankBadge from '@/components/shared/EvalRankBadge';
+import ConfirmModal from '@/components/shared/ConfirmModal';
+import StatusMessage from '@/components/shared/StatusMessage';
+import LoadingButton from '@/components/shared/LoadingButton';
 import type { Rank } from '@/types/evaluation';
 import { SALARY_CHANGE } from '@/types/evaluation';
 
@@ -70,6 +73,8 @@ export default function CalibrationClient({ evalPeriodName, evaluations }: Calib
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [progress, setProgress] = useState({ current: 0, total: 0 });
 
   // ランク分布をリアルタイム計算
   const distribution = useMemo(() => {
@@ -108,18 +113,27 @@ export default function CalibrationClient({ evalPeriodName, evaluations }: Calib
     setSubmitError(null);
   }, []);
 
-  const handleCalibrate = useCallback(async () => {
+  const handleCalibrateClick = useCallback(() => {
     if (!allRanksAssigned) return;
+    setConfirmOpen(true);
+  }, [allRanksAssigned]);
 
+  const handleConfirmCalibrate = useCallback(async () => {
     setIsSubmitting(true);
     setSubmitError(null);
     setSubmitSuccess(false);
+    setConfirmOpen(false);
+
+    const targetEvaluations = evaluations.filter((e) => finalRanks[e.id]);
+    setProgress({ current: 0, total: targetEvaluations.length });
 
     try {
-      for (const evaluation of evaluations) {
+      for (let i = 0; i < targetEvaluations.length; i++) {
+        const evaluation = targetEvaluations[i];
         const rank = finalRanks[evaluation.id];
         if (!rank) continue;
 
+        setProgress({ current: i + 1, total: targetEvaluations.length });
         const result = await calibrateEvaluation(evaluation.id, rank);
         if (!result.success) {
           throw new Error(result.error ?? `評価ID ${evaluation.id} の更新に失敗しました`);
@@ -128,12 +142,13 @@ export default function CalibrationClient({ evalPeriodName, evaluations }: Calib
 
       setSubmitSuccess(true);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'キャリブレーション確定中にエラーが発生しました';
-      setSubmitError(message);
+      const errMessage = err instanceof Error ? err.message : 'キャリブレーション確定中にエラーが発生しました';
+      setSubmitError(errMessage);
     } finally {
       setIsSubmitting(false);
+      setProgress({ current: 0, total: 0 });
     }
-  }, [allRanksAssigned, evaluations, finalRanks]);
+  }, [evaluations, finalRanks]);
 
   // CSV出力ハンドラ
   const handleCsvExport = useCallback(() => {
@@ -202,30 +217,48 @@ export default function CalibrationClient({ evalPeriodName, evaluations }: Calib
                 CSV出力
               </span>
             </button>
-            <button
-              type="button"
-              disabled={!allRanksAssigned || isSubmitting || submitSuccess}
-              onClick={handleCalibrate}
-              className={
-                allRanksAssigned && !isSubmitting && !submitSuccess
-                  ? 'px-4 py-2 border border-[#3b82f6] text-xs text-[#3b82f6] font-bold hover:bg-[#3b82f6]/10 transition-colors'
-                  : 'px-4 py-2 border border-[#3b82f6] text-xs text-[#3b82f6] font-bold cursor-not-allowed opacity-50'
-              }
-            >
-              {isSubmitting ? '処理中...' : submitSuccess ? '確定済み' : '確定'}
-            </button>
+            <LoadingButton
+              loading={isSubmitting}
+              disabled={!allRanksAssigned || submitSuccess}
+              label={submitSuccess ? '確定済み' : '確定'}
+              loadingLabel="処理中..."
+              variant="primary"
+              onClick={handleCalibrateClick}
+            />
           </div>
         </div>
 
         {/* エラー・成功メッセージ */}
         {submitError && (
-          <div className="border border-[#ef4444]/30 bg-[#ef4444]/5 px-4 py-3 text-sm text-[#ef4444]">
-            {submitError}
-          </div>
+          <StatusMessage
+            message={submitError}
+            type="error"
+            autoDismissMs={0}
+            onDismiss={() => setSubmitError(null)}
+          />
         )}
         {submitSuccess && (
-          <div className="border border-[#22c55e]/30 bg-[#22c55e]/5 px-4 py-3 text-sm text-[#22c55e]">
-            キャリブレーションが確定されました。
+          <StatusMessage
+            message="キャリブレーションが確定されました。"
+            type="success"
+            autoDismissMs={0}
+            onDismiss={() => setSubmitSuccess(false)}
+          />
+        )}
+
+        {/* 進捗バー */}
+        {progress.total > 0 && (
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-xs text-[#a3a3a3]">
+              <span>処理中...</span>
+              <span>{progress.current} / {progress.total}</span>
+            </div>
+            <div className="h-1 bg-[#1a1a1a]">
+              <div
+                className="h-full bg-[#3b82f6] transition-all"
+                style={{ width: `${(progress.current / progress.total) * 100}%` }}
+              />
+            </div>
           </div>
         )}
 
@@ -339,6 +372,18 @@ export default function CalibrationClient({ evalPeriodName, evaluations }: Calib
             </table>
           </div>
         </div>
+        {/* 確定確認モーダル */}
+        <ConfirmModal
+          open={confirmOpen}
+          title="キャリブレーション確定"
+          description="全員のランクを確定します。確定後はランクの変更ができなくなります。よろしいですか？"
+          confirmLabel="確定する"
+          cancelLabel="キャンセル"
+          variant="danger"
+          loading={isSubmitting}
+          onConfirm={handleConfirmCalibrate}
+          onCancel={() => setConfirmOpen(false)}
+        />
       </div>
     </div>
   );

@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { Grade, MemberStatus } from '@/types/evaluation';
@@ -121,6 +121,7 @@ export default function MemberManager({
   const supabase = createClient();
 
   // --- State ---
+  const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [modalMode, setModalMode] = useState<ModalMode>('closed');
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
@@ -130,6 +131,14 @@ export default function MemberManager({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // --- 検索デバウンス ---
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchQuery(searchInput);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   // --- 派生データ ---
   const filteredMembers = useMemo(() => {
@@ -457,8 +466,8 @@ export default function MemberManager({
             <div className="flex items-center gap-2">
               <input
                 type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="名前で検索..."
                 className="bg-[#111111] border border-[#333333] text-sm px-3 py-1 text-[#e5e5e5] placeholder:text-[#404040] outline-none w-48 focus:border-[#3b82f6]"
               />

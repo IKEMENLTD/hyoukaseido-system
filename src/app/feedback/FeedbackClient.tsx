@@ -10,6 +10,8 @@ import { useRouter } from 'next/navigation';
 import type { Rank, Grade, EvaluationStatus } from '@/types/evaluation';
 import { submitFeedback, finalizeEvaluation } from '@/lib/evaluation/actions';
 import EvalRankBadge from '@/components/shared/EvalRankBadge';
+import StatusMessage from '@/components/shared/StatusMessage';
+import LoadingButton from '@/components/shared/LoadingButton';
 
 // -----------------------------------------------------------------------------
 // 型定義
@@ -158,17 +160,11 @@ export default function FeedbackClient({ targets: initialTargets, isAdmin }: Fee
   return (
     <>
       {/* メッセージ表示 */}
-      {message && (
-        <div
-          className={`border px-4 py-3 text-sm ${
-            message.type === 'success'
-              ? 'border-[#22d3ee]/30 bg-[#22d3ee]/5 text-[#22d3ee]'
-              : 'border-[#ef4444]/30 bg-[#ef4444]/5 text-[#ef4444]'
-          }`}
-        >
-          {message.text}
-        </div>
-      )}
+      <StatusMessage
+        message={message?.text ?? null}
+        type={message?.type ?? 'success'}
+        onDismiss={() => setMessage(null)}
+      />
 
       {/* フィードバック対象者一覧 */}
       <div className="space-y-4">
@@ -222,18 +218,14 @@ export default function FeedbackClient({ targets: initialTargets, isAdmin }: Fee
                     )}
                     {isAdmin && target.status === 'feedback_done' && (
                       <div className="pt-2">
-                        <button
-                          type="button"
+                        <LoadingButton
+                          loading={finalizingId === target.id}
+                          label="評価確定"
+                          loadingLabel="処理中..."
+                          variant="primary"
                           onClick={() => handleFinalize(target.id)}
-                          disabled={finalizingId === target.id}
-                          className={`px-3 py-1 border text-xs font-bold ${
-                            finalizingId === target.id
-                              ? 'border-[#333333] text-[#737373] cursor-not-allowed'
-                              : 'border-[#22c55e] text-[#22c55e] hover:bg-[#22c55e]/10'
-                          }`}
-                        >
-                          {finalizingId === target.id ? '処理中...' : '評価確定'}
-                        </button>
+                          className="px-3 py-1"
+                        />
                       </div>
                     )}
                     {target.status === 'finalized' && (
@@ -297,26 +289,20 @@ export default function FeedbackClient({ targets: initialTargets, isAdmin }: Fee
 
                     {/* ボタン群 */}
                     <div className="flex items-center gap-3">
-                      <button
-                        type="button"
+                      <LoadingButton
+                        loading={saving}
+                        label="FB実施完了"
+                        loadingLabel="保存中..."
+                        variant="primary"
                         onClick={() => handleSubmit(target.id)}
+                      />
+                      <LoadingButton
+                        loading={false}
                         disabled={saving}
-                        className={`px-4 py-2 border text-xs font-bold ${
-                          saving
-                            ? 'border-[#333333] text-[#737373] cursor-not-allowed'
-                            : 'border-[#3b82f6] bg-[#3b82f6]/10 text-[#3b82f6] hover:bg-[#3b82f6]/20'
-                        }`}
-                      >
-                        {saving ? '保存中...' : 'FB実施完了'}
-                      </button>
-                      <button
-                        type="button"
+                        label="キャンセル"
+                        variant="secondary"
                         onClick={handleCancel}
-                        disabled={saving}
-                        className="px-4 py-2 border border-[#333333] text-xs text-[#a3a3a3] font-bold hover:border-[#555555]"
-                      >
-                        キャンセル
-                      </button>
+                      />
                     </div>
                   </div>
                 ) : (
