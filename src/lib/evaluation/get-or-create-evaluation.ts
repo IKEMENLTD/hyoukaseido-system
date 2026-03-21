@@ -5,6 +5,7 @@
 // =============================================================================
 
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentMember } from '@/lib/auth/get-member';
 import type { Phase, Grade, EvaluationStatus, Rank, PromotionEligibility } from '@/types/evaluation';
 
 export interface EvaluationRecord {
@@ -47,6 +48,25 @@ export async function getOrCreateEvaluation(
   memberId: string,
   periodId: string
 ): Promise<EvaluationRecord | null> {
+  // 認証チェック（defense-in-depth: 呼び出し元でも認可済み）
+  const currentMember = await getCurrentMember();
+  if (!currentMember) return null;
+
+  // 自分の評価、または同部署メンバーの評価のみ作成可能
+  if (currentMember.id !== memberId) {
+    const authClient = await createClient();
+    const { data: targetDivs } = await authClient
+      .from('division_members')
+      .select('division_id')
+      .eq('member_id', memberId);
+    const targetDivIds = (targetDivs ?? []).map(
+      (d: { division_id: string }) => d.division_id
+    );
+    const hasAccess = ['G4', 'G5'].includes(currentMember.grade) ||
+      (['G3'].includes(currentMember.grade) && targetDivIds.some((id: string) => currentMember.division_ids.includes(id)));
+    if (!hasAccess) return null;
+  }
+
   const supabase = await createClient();
 
   // 既存レコードを検索

@@ -23,11 +23,15 @@ export function verifyCronAuth(request: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
   if (!secret) return false;
 
+  // 長さが異なる場合も一定時間で比較（タイミング攻撃による長さリーク防止）
+  // 短い方をパディングしてからtimingSafeEqualで比較
   const tokenBuf = Buffer.from(token, 'utf-8');
   const secretBuf = Buffer.from(secret, 'utf-8');
+  const maxLen = Math.max(tokenBuf.length, secretBuf.length);
+  const paddedToken = Buffer.alloc(maxLen);
+  const paddedSecret = Buffer.alloc(maxLen);
+  tokenBuf.copy(paddedToken);
+  secretBuf.copy(paddedSecret);
 
-  // timingSafeEqual は同じ長さのBufferが必要
-  if (tokenBuf.length !== secretBuf.length) return false;
-
-  return crypto.timingSafeEqual(tokenBuf, secretBuf);
+  return tokenBuf.length === secretBuf.length && crypto.timingSafeEqual(paddedToken, paddedSecret);
 }

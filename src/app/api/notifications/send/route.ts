@@ -87,6 +87,29 @@ export async function POST(request: Request) {
 
     const memberRow = member as unknown as MemberRow;
 
+    // 簡易レートリミット: 同一組織で5秒以内の連続通知送信を拒否
+    const serviceClientForRateLimit = createServiceRoleClient();
+    const { data: recentChannel } = await serviceClientForRateLimit
+      .from('notification_channels')
+      .select('last_sent_at')
+      .eq('org_id', memberRow.org_id)
+      .eq('is_active', true)
+      .not('last_sent_at', 'is', null)
+      .order('last_sent_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (recentChannel) {
+      const row = recentChannel as { last_sent_at: string };
+      const lastSentTime = new Date(row.last_sent_at).getTime();
+      if (Date.now() - lastSentTime < 5000) {
+        return NextResponse.json(
+          { error: 'リクエストが多すぎます。しばらく待ってから再試行してください' },
+          { status: 429 }
+        );
+      }
+    }
+
     const body = (await request.json()) as SendNotificationBody;
 
     // バリデーション
@@ -121,7 +144,7 @@ export async function POST(request: Request) {
     }
 
     // URLが指定されている場合、相対パスのみ許可（外部URLフィッシング防止）
-    if (body.url && !/^\/[a-zA-Z0-9]/.test(body.url)) {
+    if (body.url && (!/^\/[a-zA-Z0-9]/.test(body.url) || body.url.includes('..'))) {
       return NextResponse.json(
         { error: '通知URLは相対パスのみ指定可能です' },
         { status: 400 }

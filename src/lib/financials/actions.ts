@@ -52,6 +52,9 @@ export async function saveDivisionFinancials(
     if (input.revenue > MAX || input.cost > MAX || input.operating_cost > MAX) {
       return { success: false, error: '金額が上限を超えています' };
     }
+    if (input.note && input.note.length > 1000) {
+      return { success: false, error: '備考は1000文字以内で入力してください' };
+    }
   }
 
   const supabase = await createClient();
@@ -211,6 +214,9 @@ export async function saveSharedCosts(
       }
       if (!item.label.trim()) {
         return { success: false, error: 'ラベルは必須です' };
+      }
+      if (item.note && item.note.length > 1000) {
+        return { success: false, error: '備考は1000文字以内で入力してください' };
       }
     }
 
