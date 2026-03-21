@@ -43,8 +43,27 @@ export async function updateObjectiveTitle(
   if (!objective) return { success: false, error: 'OKRが見つかりません' };
 
   const obj = objective as { member_id: string | null };
-  if (obj.member_id !== member.id && !['G3', 'G4', 'G5'].includes(member.grade)) {
-    return { success: false, error: '自分のOKRのみ編集可能です' };
+  if (obj.member_id !== member.id) {
+    // G4/G5は全OKR編集可能、G3は同一事業部のみ
+    if (!['G3', 'G4', 'G5'].includes(member.grade)) {
+      return { success: false, error: '自分のOKRのみ編集可能です' };
+    }
+    if (member.grade === 'G3' && obj.member_id) {
+      // G3は対象メンバーが同一事業部に所属しているか確認
+      const { data: targetDivs } = await supabase
+        .from('division_members')
+        .select('division_id')
+        .eq('member_id', obj.member_id);
+      const targetDivIds = (targetDivs ?? []).map(
+        (d) => (d as { division_id: string }).division_id
+      );
+      const hasSharedDiv = targetDivIds.some(
+        (id) => member.division_ids.includes(id)
+      );
+      if (!hasSharedDiv) {
+        return { success: false, error: '所属事業部外のOKRは編集できません' };
+      }
+    }
   }
 
   const { error } = await supabase

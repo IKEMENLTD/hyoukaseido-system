@@ -73,7 +73,7 @@ function escapeChatwork(text: string): string {
  * ChatWork Webhook用のペイロードを構築
  */
 function buildChatworkPayload(payload: NotificationPayload): Record<string, unknown> {
-  const urlSuffix = payload.url ? `\n${payload.url}` : '';
+  const urlSuffix = payload.url ? `\n${escapeChatwork(payload.url)}` : '';
   return {
     body: `[info][title]${escapeChatwork(payload.title)}[/title]${escapeChatwork(payload.message)}${urlSuffix}[/info]`,
   };
@@ -86,6 +86,27 @@ async function sendToChannel(
   channel: NotificationChannel,
   payload: NotificationPayload
 ): Promise<NotificationResult> {
+  // SSRF防止: プライベートIP・ローカルホストへのリクエストをブロック
+  try {
+    const webhookUrl = new URL(channel.webhookUrl);
+    const hostname = webhookUrl.hostname;
+    if (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '::1' ||
+      hostname === '0.0.0.0' ||
+      hostname.endsWith('.local') ||
+      /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|169\.254\.)/.test(hostname)
+    ) {
+      return { channelId: channel.id, success: false, error: '内部ネットワークへの送信は禁止されています' };
+    }
+    if (webhookUrl.protocol !== 'https:') {
+      return { channelId: channel.id, success: false, error: 'HTTPS以外のWebhookは禁止されています' };
+    }
+  } catch {
+    return { channelId: channel.id, success: false, error: 'Webhook URLが不正です' };
+  }
+
   const body =
     channel.type === 'slack'
       ? buildSlackPayload(payload)

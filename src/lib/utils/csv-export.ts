@@ -8,10 +8,15 @@
  * カンマ・改行・ダブルクォートを含む場合はダブルクォートで囲む
  */
 function escapeCsvValue(value: string): string {
-  if (value.includes(',') || value.includes('\n') || value.includes('"')) {
-    return `"${value.replace(/"/g, '""')}"`;
+  // 数式インジェクション防止: Excel等で数式として解釈される先頭文字をエスケープ
+  let escaped = value;
+  if (/^[=+\-@\t\r]/.test(escaped)) {
+    escaped = `'${escaped}`;
   }
-  return value;
+  if (escaped.includes(',') || escaped.includes('\n') || escaped.includes('"') || escaped !== value) {
+    return `"${escaped.replace(/"/g, '""')}"`;
+  }
+  return escaped;
 }
 
 /**

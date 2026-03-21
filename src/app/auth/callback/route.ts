@@ -79,23 +79,48 @@ export async function GET(request: Request) {
       if (user?.email && user.email_confirmed_at) {
         try {
           const serviceClient = createServiceRoleClient();
-          // email照合はcase-insensitive（Google OAuthの返すemailと登録emailの大小文字差異対応）
-          // 同一emailの重複メンバー対策: activeのみ対象 + 1件だけ取得してIDで更新
-          const { data: candidate } = await serviceClient
+          const normalizedEmail = user.email.toLowerCase().trim();
+
+          // ACC-01: このauth_user_idが既に別のメンバーにリンク済みでないか確認
+          // 既にリンク済みなら自動リンクをスキップ（二重リンク防止）
+          const { data: alreadyLinked } = await serviceClient
             .from('members')
             .select('id')
-            .ilike('email', user.email)
-            .is('auth_user_id', null)
+            .eq('auth_user_id', user.id)
             .eq('status', 'active')
             .limit(1)
-            .single();
+            .maybeSingle();
 
-          if (candidate) {
-            await serviceClient
+          if (!alreadyLinked) {
+            // ACC-01: 未リンクメンバーをメールで検索
+            // ilike でDB側絞り込み後、アプリ側で正規化比較（ilike単独依存を排除）
+            const { data: candidates } = await serviceClient
               .from('members')
-              .update({ auth_user_id: user.id })
-              .eq('id', candidate.id);
-            isFirstLogin = true;
+              .select('id, email')
+              .is('auth_user_id', null)
+              .eq('status', 'active')
+              .ilike('email', normalizedEmail);
+
+            // アプリ側で厳密なメール一致検証（大文字小文字違いの乗っ取り防止）
+            const exactMatch = candidates?.find(
+              (c: { id: string; email: string }) =>
+                c.email.toLowerCase().trim() === normalizedEmail
+            );
+
+            if (exactMatch) {
+              // ACC-01: 競合防止 - auth_user_id IS NULL の条件付きUPDATE（楽観ロック）
+              const { data: linked, error: linkErr } = await serviceClient
+                .from('members')
+                .update({ auth_user_id: user.id })
+                .eq('id', exactMatch.id)
+                .is('auth_user_id', null)
+                .select('id')
+                .maybeSingle();
+
+              if (linked && !linkErr) {
+                isFirstLogin = true;
+              }
+            }
           }
         } catch (e) {
           // メンバー紐付け失敗してもログイン自体は続行（500エラー防止）

@@ -77,11 +77,11 @@ export default async function MemberPage(props: MemberPageProps) {
     );
   }
 
-  const managerGrades: ReadonlyArray<string> = ['G3', 'G4', 'G5'];
   const isOwnPage = currentMember.id === memberId;
-  const isManager = managerGrades.includes(currentMember.grade);
+  const isExecutive = ['G4', 'G5'].includes(currentMember.grade);
+  const isManager = currentMember.grade === 'G3';
 
-  if (!isOwnPage && !isManager) {
+  if (!isOwnPage && !isExecutive && !isManager) {
     return (
       <div className="min-h-screen bg-[#050505] p-3 sm:p-6 flex items-center justify-center">
         <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4 sm:p-8 max-w-md text-center">
@@ -98,6 +98,39 @@ export default async function MemberPage(props: MemberPageProps) {
         </div>
       </div>
     );
+  }
+
+  // G3は同一事業部のメンバーのみ閲覧可能（G4/G5は全社アクセス可）
+  if (isManager && !isOwnPage) {
+    const supabaseCheck = await createClient();
+    const { data: targetDivisions } = await supabaseCheck
+      .from('division_members')
+      .select('division_id')
+      .eq('member_id', memberId);
+    const targetDivIds = (targetDivisions ?? []).map(
+      (d) => (d as { division_id: string }).division_id
+    );
+    const hasSharedDivision = targetDivIds.some(
+      (id) => currentMember.division_ids.includes(id)
+    );
+    if (!hasSharedDivision) {
+      return (
+        <div className="min-h-screen bg-[#050505] p-3 sm:p-6 flex items-center justify-center">
+          <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4 sm:p-8 max-w-md text-center">
+            <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">アクセス権限がありません</h2>
+            <p className="text-sm text-[#737373]">
+              所属事業部外のメンバー情報は閲覧できません。
+            </p>
+            <a
+              href="/dashboard"
+              className="mt-4 inline-block px-4 py-2 border border-[#333333] text-xs text-[#a3a3a3] hover:border-[#e5e5e5] hover:text-[#e5e5e5]"
+            >
+              ダッシュボードへ戻る
+            </a>
+          </div>
+        </div>
+      );
+    }
   }
 
   // -- Supabaseクライアント作成 --

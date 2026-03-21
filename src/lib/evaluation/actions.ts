@@ -114,7 +114,10 @@ async function verifyEvaluationAccess(
       return { ok: false, error: 'この評価は上長評価段階ではありません' };
     }
   } else if (mode === 'calibration') {
-    // キャリブレーション: G4/G5のみ
+    // キャリブレーション: G4/G5のみ、自分自身の評価は不可
+    if (eval_.member_id === member.id) {
+      return { ok: false, error: '自分自身の評価はキャリブレーションできません' };
+    }
     if (!['G4', 'G5'].includes(member.grade)) {
       return { ok: false, error: 'キャリブレーションはG4以上のみ実行可能です' };
     }
@@ -137,7 +140,10 @@ async function verifyEvaluationAccess(
       return { ok: false, error: 'この評価はフィードバック段階ではありません' };
     }
   } else if (mode === 'finalize') {
-    // 評価確定: G4/G5のみ
+    // 評価確定: G4/G5のみ、自分自身の評価は不可
+    if (eval_.member_id === member.id) {
+      return { ok: false, error: '自分自身の評価は確定できません' };
+    }
     if (!['G4', 'G5'].includes(member.grade)) {
       return { ok: false, error: '評価確定はG4以上のみ実行可能です' };
     }
@@ -1179,24 +1185,30 @@ async function recalculateTotalScoreAndRank(evaluationId: string): Promise<void>
     .limit(5);
   if (pastEvalsErr) console.error('[DB] evaluations 取得エラー:', pastEvalsErr);
 
-  let promotionEligibility: 'immediate' | 'candidate' | 'none' = 'none';
-  if (finalRank === 'S') {
-    promotionEligibility = 'immediate';
-  } else if (finalRank === 'A' && pastEvals && pastEvals.length > 0) {
-    const prevRank = (pastEvals as Array<{ rank: string }>)[0].rank;
-    if (prevRank === 'S' || prevRank === 'A') {
-      promotionEligibility = 'candidate';
+  // 昇格適格性の計算（pastEvalsのクエリ失敗時は既存値を維持して降格を防止）
+  const updateFields: Record<string, unknown> = {
+    total_score: totalScore,
+    rank: finalRank,
+    upper_behavior_bonus: bonus,
+    salary_change_recommended: salaryAmount,
+  };
+
+  if (!pastEvalsErr) {
+    let promotionEligibility: 'immediate' | 'candidate' | 'none' = 'none';
+    if (finalRank === 'S') {
+      promotionEligibility = 'immediate';
+    } else if (finalRank === 'A' && pastEvals && pastEvals.length > 0) {
+      const prevRank = (pastEvals as Array<{ rank: string }>)[0].rank;
+      if (prevRank === 'S' || prevRank === 'A') {
+        promotionEligibility = 'candidate';
+      }
     }
+    updateFields.promotion_eligibility = promotionEligibility;
   }
+  // pastEvalsErr の場合、promotion_eligibility は更新しない（既存値を維持）
 
   await supabase
     .from('evaluations')
-    .update({
-      total_score: totalScore,
-      rank: finalRank,
-      upper_behavior_bonus: bonus,
-      salary_change_recommended: salaryAmount,
-      promotion_eligibility: promotionEligibility,
-    })
+    .update(updateFields)
     .eq('id', evaluationId);
 }

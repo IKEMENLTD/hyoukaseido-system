@@ -227,6 +227,26 @@ export default async function DivisionPage(props: DivisionPageProps) {
     );
   }
 
+  // G3は自分の所属事業部のみ閲覧可能（G4/G5は全社アクセス可）
+  if (currentMember.grade === 'G3' && !currentMember.division_ids.includes(divisionId)) {
+    return (
+      <div className="min-h-screen bg-[#050505] p-3 sm:p-6 flex items-center justify-center">
+        <div className="border border-[#1a1a1a] bg-[#0a0a0a] p-4 sm:p-8 max-w-md text-center">
+          <h2 className="text-lg font-bold text-[#e5e5e5] mb-2">アクセス権限がありません</h2>
+          <p className="text-sm text-[#737373]">
+            所属事業部外の情報は閲覧できません。
+          </p>
+          <a
+            href="/dashboard"
+            className="mt-4 inline-block px-4 py-2 border border-[#333333] text-xs text-[#a3a3a3] hover:border-[#e5e5e5] hover:text-[#e5e5e5]"
+          >
+            ダッシュボードへ戻る
+          </a>
+        </div>
+      </div>
+    );
+  }
+
   const { division, members, kpiAchievement } = await fetchDivisionData(divisionId);
 
   if (!division) {
