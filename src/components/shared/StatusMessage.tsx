@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef } from 'react';
 
 interface StatusMessageProps {
   message: string | null;
   type: 'success' | 'error';
-  /** 自動消去までのミリ秒（0で無効） */
+  /** 自動消去までのミリ秒（0で無効）。親がonDismissでmessageをnullにする想定 */
   autoDismissMs?: number;
   onDismiss?: () => void;
 }
@@ -16,24 +16,22 @@ export default function StatusMessage({
   autoDismissMs = 4000,
   onDismiss,
 }: StatusMessageProps) {
-  const [visible, setVisible] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (message) {
-      setVisible(true);
-      if (autoDismissMs > 0) {
-        const timer = setTimeout(() => {
-          setVisible(false);
-          onDismiss?.();
-        }, autoDismissMs);
-        return () => clearTimeout(timer);
-      }
-    } else {
-      setVisible(false);
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
     }
+    if (message && autoDismissMs > 0 && onDismiss) {
+      timerRef.current = setTimeout(onDismiss, autoDismissMs);
+    }
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
   }, [message, autoDismissMs, onDismiss]);
 
-  if (!message || !visible) return null;
+  if (!message) return null;
 
   const styles = type === 'success'
     ? 'border-[#22d3ee]/30 bg-[#22d3ee]/5 text-[#22d3ee]'
@@ -54,7 +52,7 @@ export default function StatusMessage({
       <span className="flex-1">{message}</span>
       <button
         type="button"
-        onClick={() => { setVisible(false); onDismiss?.(); }}
+        onClick={onDismiss}
         className="shrink-0 opacity-60 hover:opacity-100 transition-opacity"
         aria-label="閉じる"
       >

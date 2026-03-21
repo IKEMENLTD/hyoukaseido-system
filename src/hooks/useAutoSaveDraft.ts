@@ -90,30 +90,25 @@ export function useAutoSaveDraft<T>(
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
 
   // 初回マウント時にlocalStorageから復元（lazy initializer）
-  // restoredData と draftSavedAt を同時に初期化するため、一度だけパースする
-  const initialParsed = useRef<{ data: T | null; savedAt: string | null } | undefined>(undefined);
-  if (initialParsed.current === undefined) {
+  function parseDraft(): { data: T | null; savedAt: string | null } {
     const raw = safeGetItem(key);
     if (raw !== null) {
       try {
         const parsed: unknown = JSON.parse(raw);
         if (isDraftWrapper<T>(parsed)) {
-          initialParsed.current = { data: parsed.data, savedAt: parsed.savedAt };
-        } else {
-          // 旧形式: dataが直接保存されている、savedAtはnull
-          initialParsed.current = { data: parsed as T, savedAt: null };
+          return { data: parsed.data, savedAt: parsed.savedAt };
         }
+        // 旧形式: dataが直接保存されている、savedAtはnull
+        return { data: parsed as T, savedAt: null };
       } catch {
         safeRemoveItem(key);
-        initialParsed.current = { data: null, savedAt: null };
       }
-    } else {
-      initialParsed.current = { data: null, savedAt: null };
     }
+    return { data: null, savedAt: null };
   }
 
-  const [restoredData, setRestoredData] = useState<T | null>(initialParsed.current.data);
-  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(initialParsed.current.savedAt);
+  const [restoredData, setRestoredData] = useState<T | null>(() => parseDraft().data);
+  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(() => parseDraft().savedAt);
   const [hasDraft, setHasDraft] = useState(() => safeGetItem(key) !== null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitialMount = useRef(true);
